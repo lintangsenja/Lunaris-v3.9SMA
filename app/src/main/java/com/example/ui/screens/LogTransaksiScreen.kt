@@ -175,6 +175,23 @@ fun LogTransaksiScreen(
         list.sortedWith(compareByDescending<LoanTransactionEntity> { it.tanggal }.thenByDescending { it.waktu })
     }
 
+    val userRole by viewModel.userRole.collectAsState()
+    val studentPermissions by viewModel.studentPermissions.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    fun isTabAllowed(index: Int): Boolean {
+        if (!userRole.contains("siswa", ignoreCase = true)) return true
+        val key = when(index) {
+            0 -> "log_sirkulasi"
+            1 -> "log_bahan_habis"
+            2 -> "log_stok"
+            3 -> "log_pemeliharaan"
+            4 -> "log_aktivitas"
+            else -> "log_sirkulasi"
+        }
+        return studentPermissions[key] == true
+    }
+
     // 5 Categories Tier 1 Tab State
     val mainCategories = listOf(
         "Sirkulasi Alat",
@@ -184,6 +201,15 @@ fun LogTransaksiScreen(
         "Aktivitas Sistem"
     )
     var selectedMainCategoryIndex by remember { mutableStateOf(0) }
+
+    LaunchedEffect(userRole, studentPermissions) {
+        if (userRole.contains("siswa", ignoreCase = true) && !isTabAllowed(selectedMainCategoryIndex)) {
+            val nextAllowed = (0..4).firstOrNull { isTabAllowed(it) }
+            if (nextAllowed != null) {
+                selectedMainCategoryIndex = nextAllowed
+            }
+        }
+    }
 
     // Tier 2 Sub-Tabs States
     var subTabSirkulasi by remember { mutableStateOf(0) } // 0=Semua, 1=Dipinjam, 2=Kembali, 3=Terlambat
@@ -425,18 +451,43 @@ fun LogTransaksiScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     mainCategories.forEachIndexed { index, title ->
+                        val allowed = isTabAllowed(index)
                         Tab(
                             selected = selectedMainCategoryIndex == index,
-                            onClick = { selectedMainCategoryIndex = index },
+                            onClick = {
+                                if (allowed) {
+                                    selectedMainCategoryIndex = index
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Sub-menu '$title' terkunci untuk akun Siswa",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
                             selectedContentColor = Color(0xFF7C3AED),
-                            unselectedContentColor = Color.Gray,
+                            unselectedContentColor = if (allowed) Color.Gray else Color.LightGray,
                             text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedMainCategoryIndex == index) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (!allowed) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Terkunci",
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = title,
+                                        fontWeight = if (selectedMainCategoryIndex == index) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                        color = if (!allowed) Color.Gray.copy(alpha = 0.6f) else Color.Unspecified,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
                             },
                             modifier = Modifier.testTag("main_tab_$index")
                         )

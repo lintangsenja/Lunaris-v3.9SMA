@@ -397,6 +397,16 @@ class InventoryRepository(
         inventoryDao.clearTransactions()
         inventoryDao.clearLoanItems()
         inventoryDao.clearDamagedItems()
+        inventoryDao.clearPemakaianBahan()
+        inventoryDao.clearBahanAfkir()
+    }
+
+    suspend fun clearAllTransactions() {
+        inventoryDao.clearTransactions()
+        inventoryDao.clearLoanItems()
+        inventoryDao.clearDamagedItems()
+        inventoryDao.clearPemakaianBahan()
+        inventoryDao.clearBahanAfkir()
     }
 
     suspend fun repairStokRusak(idBarang: String, amount: Int) {

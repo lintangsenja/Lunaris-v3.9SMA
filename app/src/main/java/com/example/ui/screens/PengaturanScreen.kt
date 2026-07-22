@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
@@ -129,6 +130,7 @@ fun PengaturanScreen(
 
     var urlInput by remember(sheetsUrl) { mutableStateOf(sheetsUrl) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showClearTransactionsDialog by remember { mutableStateOf(false) }
 
     // Google Apps Script template text for user to copy-paste
     val googleAppsScriptTemplate = """
@@ -575,10 +577,25 @@ function getOrCreateSheet(ss, name) {
                         )
 
                         Text(
-                            text = "Tombol di bawah ini akan membersihkan semua data transaksi lokal, daftar barang, dan riwayat peminjaman dari memori handphone Anda.",
+                            text = "Tombol di bawah ini akan membersihkan data transaksi, riwayat peminjaman, pemakaian bahan, afkir, alat rusak, pemeliharaan, dan log transaksi dari database lokal dan Firestore.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
+
+                        Button(
+                            onClick = { showClearTransactionsDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFDC2626),
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("btn_clear_transactions")
+                        ) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Clear Transactions")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Kosongkan Seluruh Residu Transaksi (0 Items)", fontWeight = FontWeight.Bold)
+                        }
 
                         Button(
                             onClick = { showResetConfirmDialog = true },
@@ -590,7 +607,7 @@ function getOrCreateSheet(ss, name) {
                                 .fillMaxWidth()
                                 .testTag("btn_clear_data")
                         ) {
-                            Icon(imageVector = Icons.Default.DeleteForever, contentDescription = "Clear")
+                            Icon(imageVector = Icons.Default.DeleteForever, contentDescription = "Clear All")
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Reset & Hapus Semua Data Lokal", fontWeight = FontWeight.Bold)
                         }
@@ -623,6 +640,33 @@ function getOrCreateSheet(ss, name) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
+        }
+
+        // Clear transactions confirm dialog
+        if (showClearTransactionsDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearTransactionsDialog = false },
+                title = { Text("Kosongkan Seluruh Residu Transaksi?", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+                text = { Text("Seluruh riwayat peminjaman, pengembalian, pemakaian bahan, bahan afkir, alat rusak, pemeliharaan, dan log transaksi lokal serta di Firestore akan dihapus total (0 items). Master data barang tetap aman.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.clearAllTransactionsData {
+                                Toast.makeText(context, "Seluruh data residu transaksi berhasil dikosongkan!", Toast.LENGTH_LONG).show()
+                                showClearTransactionsDialog = false
+                            }
+                        },
+                        modifier = Modifier.testTag("btn_confirm_clear_transactions")
+                    ) {
+                        Text("Ya, Kosongkan Total", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearTransactionsDialog = false }) {
+                        Text("Batal")
+                    }
+                }
+            )
         }
 
         // Reset local database confirm dialog

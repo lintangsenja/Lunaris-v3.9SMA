@@ -58,6 +58,8 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val instansiLogoPath by viewModel.instansiLogoPath.collectAsState()
+
     val gradientColors = listOf(
         Color(0xFF7C3AED), // Indigo Purple
         Color(0xFF3B82F6)  // Cosmic Blue
@@ -91,6 +93,7 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 DynamicLogo(
+                    logoPath = instansiLogoPath,
                     modifier = Modifier.fillMaxSize(),
                     defaultIconTint = Color.White
                 )

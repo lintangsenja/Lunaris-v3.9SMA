@@ -51,6 +51,7 @@ class SettingsRepository(private val context: Context) {
         private const val KEY_APP_THEME = "app_theme"
         private const val KEY_INSTANSI_NAME = "instansi_name"
         private const val KEY_INSTANSI_LOGO_PATH = "instansi_logo_path"
+        private const val KEY_USER_PROFILE_PHOTO = "user_profile_photo"
     }
 
     fun isDemoFinished(): Boolean {
@@ -97,6 +98,14 @@ class SettingsRepository(private val context: Context) {
 
     fun setInstansiLogoPath(path: String) {
         prefs.edit().putString(KEY_INSTANSI_LOGO_PATH, path).apply()
+    }
+
+    fun getUserProfilePhoto(): String {
+        return prefs.getString(KEY_USER_PROFILE_PHOTO, "") ?: ""
+    }
+
+    fun setUserProfilePhoto(path: String) {
+        prefs.edit().putString(KEY_USER_PROFILE_PHOTO, path).apply()
     }
 
     // Helper functions to save/get lists from SharedPreferences
@@ -275,12 +284,10 @@ class SettingsRepository(private val context: Context) {
             "peminjaman" to false,
             "peminjaman_form" to false,
             "peminjaman_riwayat" to false,
-            "peminjaman_print" to false,
 
             "pengembalian" to false,
             "pengembalian_normal" to false,
             "pengembalian_parsial" to false,
-            "pengembalian_print" to false,
 
             "qr_group" to false,
             "scan_qr" to false,
@@ -294,39 +301,32 @@ class SettingsRepository(private val context: Context) {
             "log_stok" to false,
             "log_pemeliharaan" to false,
             "log_aktivitas" to false,
-            "log_export_excel" to false,
-            "log_print_pdf" to false,
 
             "alat" to false,
             "alat_view" to false,
             "alat_detail" to false,
             "alat_import" to false,
             "alat_export" to false,
-            "alat_print" to false,
 
             "kondisi_alat" to false,
             "kondisi_alat_catat" to false,
             "kondisi_alat_view" to false,
             "kondisi_alat_report" to false,
-            "kondisi_alat_print" to false,
 
             "alat_rusak" to false,
             "alat_rusak_submit" to false,
             "alat_rusak_view" to false,
-            "alat_rusak_print" to false,
 
             "pemeliharaan" to false,
             "pemeliharaan_tambah" to false,
             "pemeliharaan_view" to false,
             "pemeliharaan_history" to false,
-            "pemeliharaan_print" to false,
 
             "bahan" to false,
             "bahan_view" to false,
             "bahan_detail" to false,
             "bahan_import" to false,
             "bahan_export" to false,
-            "bahan_print" to false,
 
             "pemakaian_bahan" to false,
             "pemakaian_bahan_form" to false,
@@ -336,7 +336,6 @@ class SettingsRepository(private val context: Context) {
             "bahan_afkir_submit" to false,
             "bahan_afkir_view" to false,
             "bahan_afkir_report" to false,
-            "bahan_afkir_print" to false,
 
             "master_data" to false,
             "master_data_view" to false,

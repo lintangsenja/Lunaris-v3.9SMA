@@ -113,7 +113,10 @@ fun PeminjamanScreen(
     val context = LocalContext.current
     val itemsState by viewModel.itemsWithStock.collectAsState()
     val userRole by viewModel.userRole.collectAsState()
+    val studentPermissions by viewModel.studentPermissions.collectAsState()
     val defaultOfficerState by viewModel.defaultOfficer.collectAsState()
+
+    val canUseForm = if (userRole.contains("siswa", ignoreCase = true)) (studentPermissions["peminjaman_form"] == true) else true
 
     val isDark = false
     val topBarGradient = if (isDark) {
@@ -1198,8 +1201,10 @@ fun PeminjamanScreen(
                 }
             }
 
-            val buttonEnabled = !isOutOfStock
-            val buttonText = if (userRole == "siswa") {
+            val buttonEnabled = !isOutOfStock && canUseForm
+            val buttonText = if (!canUseForm) {
+                "Akses Form Terkunci Total"
+            } else if (userRole == "siswa") {
                 if (isOutOfStock) "Stok Habis / Tidak Cukup" else "Ajukan Peminjaman"
             } else {
                 if (isOutOfStock) "Stok Habis / Tidak Cukup" else "Simpan Transaksi Peminjaman"

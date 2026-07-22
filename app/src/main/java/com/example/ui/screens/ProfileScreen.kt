@@ -26,8 +26,16 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CardMembership
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -77,44 +85,52 @@ fun ProfileScreen(
 
     val userRole by viewModel.userRole.collectAsState()
     val loggedInUser by viewModel.loggedInUser.collectAsState()
-    var isUploadingLogo by remember { mutableStateOf(false) }
+    val instansiLogoPath by viewModel.instansiLogoPath.collectAsState()
+    val userProfilePhoto by viewModel.userProfilePhoto.collectAsState()
+
+    var selectedLogoUriForCrop by remember { mutableStateOf<Uri?>(null) }
 
     val logoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
+        contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            isUploadingLogo = true
-            val storageRef = FirebaseStorage.getInstance().reference
-            val logoRef = storageRef.child("logos/${UUID.randomUUID()}.jpg")
-            
-            logoRef.putFile(uri)
-                .addOnSuccessListener { taskSnapshot ->
-                    logoRef.downloadUrl.addOnSuccessListener { downloadUri ->
-                        val downloadUrl = downloadUri.toString()
-                        val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        val docRef = firestore.collection("pengaturan_global").document("profil_admin")
-                        
-                        val data = mapOf("logo_url" to downloadUrl)
-                        docRef.set(data, com.google.firebase.firestore.SetOptions.merge())
-                            .addOnSuccessListener {
-                                isUploadingLogo = false
-                                Toast.makeText(context, "Logo berhasil diunggah dan disimpan!", Toast.LENGTH_SHORT).show()
-                            }
-                            .addOnFailureListener { e ->
-                                isUploadingLogo = false
-                                Toast.makeText(context, "Gagal memperbarui database logo: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                            }
-                    }.addOnFailureListener { e ->
-                        isUploadingLogo = false
-                        Toast.makeText(context, "Gagal mengambil URL logo: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .addOnFailureListener { e ->
-                    isUploadingLogo = false
-                    Toast.makeText(context, "Gagal mengunggah logo ke Firebase Storage: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                }
+            try {
+                val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+            } catch (e: Exception) {
+                // fallback
+            }
+            selectedLogoUriForCrop = uri
         }
     }
+
+    if (selectedLogoUriForCrop != null) {
+        ImageCropDialog(
+            imageUri = selectedLogoUriForCrop!!,
+            title = "Sesuaikan Logo Instansi",
+            onDismiss = { selectedLogoUriForCrop = null },
+            onCropSuccess = { croppedUri ->
+                val logoPath = croppedUri.toString()
+                viewModel.updateInstansiLogoPath(logoPath)
+                selectedLogoUriForCrop = null
+                Toast.makeText(context, "Logo instansi berhasil diperbarui!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // User entity state from InventoryViewModel
+    val allUsers by viewModel.allUsers.collectAsState()
+    val currentUserEntity = remember(allUsers, loggedInUser) {
+        allUsers.find { it.username.equals(loggedInUser, ignoreCase = true) }
+    }
+
+    // Password change states
+    var currentPassInput by remember { mutableStateOf("") }
+    var newPassInput by remember { mutableStateOf("") }
+    var confirmPassInput by remember { mutableStateOf("") }
+    var isCurrentPassVisible by remember { mutableStateOf(false) }
+    var isNewPassVisible by remember { mutableStateOf(false) }
+    var isConfirmPassVisible by remember { mutableStateOf(false) }
 
     // State from ProfileViewModel
     val profileData by profileViewModel.profile.collectAsState()
@@ -125,13 +141,21 @@ fun ProfileScreen(
     var namaInstansiInput by remember { mutableStateOf("") }
     var fotoUriState by remember { mutableStateOf("") }
 
-    // When profileData loads, initialize our inputs
-    LaunchedEffect(profileData) {
+    // When currentUserEntity or profileData loads, initialize inputs
+    LaunchedEffect(currentUserEntity, profileData, userProfilePhoto) {
+        if (currentUserEntity != null && currentUserEntity.fullName.isNotBlank()) {
+            namaPetugasInput = currentUserEntity.fullName
+        } else {
+            profileData?.let {
+                if (namaPetugasInput.isBlank()) namaPetugasInput = it.namaPetugas
+            }
+        }
         profileData?.let {
-            namaPetugasInput = it.namaPetugas
-            nipInput = it.nip
-            namaInstansiInput = it.namaInstansi
-            fotoUriState = it.fotoUri
+            if (nipInput.isBlank()) nipInput = it.nip
+            if (namaInstansiInput.isBlank()) namaInstansiInput = it.namaInstansi
+        }
+        if (fotoUriState.isBlank()) {
+            fotoUriState = if (userProfilePhoto.isNotBlank()) userProfilePhoto else (profileData?.fotoUri ?: "")
         }
     }
 
@@ -355,34 +379,77 @@ fun ProfileScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Siswa",
-                            tint = Color(0xFF8B5CF6),
-                            modifier = Modifier.size(48.dp)
-                        )
                         Text(
-                            text = "Profil Siswa",
+                            text = "Informasi Profil Siswa",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF5B21B6)
                         )
-                        Text(
-                            text = "Username: $loggedInUser",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+
+                        OutlinedTextField(
+                            value = loggedInUser,
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = false,
+                            label = { Text("Username") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Username Icon",
+                                    tint = Color(0xFF8B5CF6)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        Text(
-                            text = "Akses Anda dibatasi sebagai Siswa untuk tujuan peminjaman barang saja.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280),
-                            textAlign = TextAlign.Center
+
+                        OutlinedTextField(
+                            value = namaPetugasInput,
+                            onValueChange = { namaPetugasInput = it },
+                            label = { Text("Nama Lengkap Siswa") },
+                            placeholder = { Text("Masukkan nama lengkap Anda") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Nama Icon",
+                                    tint = Color(0xFF8B5CF6)
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF8B5CF6),
+                                focusedLabelColor = Color(0xFF8B5CF6)
+                            ),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("input_nama_siswa")
                         )
+
+                        Button(
+                            onClick = {
+                                if (namaPetugasInput.isBlank()) {
+                                    Toast.makeText(context, "Nama lengkap tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                viewModel.updateUserProfileData(loggedInUser, namaPetugasInput) { success, message ->
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("btn_save_siswa_profile")
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Simpan Nama Lengkap", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -507,18 +574,12 @@ fun ProfileScreen(
                                 .border(3.dp, Color.White, CircleShape)
                                 .background(Color(0xFFEEF2F6))
                         ) {
-                            if (isUploadingLogo) {
-                                CircularProgressIndicator(
-                                    color = Color(0xFF8B5CF6),
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            } else {
-                                DynamicLogo(
-                                    modifier = Modifier.fillMaxSize(),
-                                    defaultIconTint = Color(0xFF8B5CF6),
-                                    contentDescription = "Logo Instansi"
-                                )
-                            }
+                            DynamicLogo(
+                                logoPath = instansiLogoPath,
+                                modifier = Modifier.fillMaxSize(),
+                                defaultIconTint = Color(0xFF8B5CF6),
+                                contentDescription = "Logo Instansi"
+                            )
                         }
 
                         Text(
@@ -530,13 +591,8 @@ fun ProfileScreen(
 
                         Button(
                             onClick = {
-                                logoPickerLauncher.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly
-                                    )
-                                )
+                                logoPickerLauncher.launch("image/*")
                             },
-                            enabled = !isUploadingLogo,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF7C3AED)
                             ),
@@ -547,7 +603,7 @@ fun ProfileScreen(
                                 .testTag("btn_upload_logo")
                         ) {
                             Text(
-                                text = if (isUploadingLogo) "Mengunggah..." else "Unggah Logo Baru",
+                                text = "Unggah Logo Baru",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = Color.White
@@ -567,6 +623,10 @@ fun ProfileScreen(
                             Toast.makeText(context, "Nama Petugas tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+                        if (fotoUriState.isNotBlank()) {
+                            viewModel.updateUserProfilePhoto(fotoUriState)
+                        }
+                        viewModel.updateUserProfileData(loggedInUser, namaPetugasInput) { _, _ -> }
                         profileViewModel.saveProfile(
                             namaPetugas = namaPetugasInput,
                             nip = nipInput,
@@ -607,6 +667,161 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Change Password Card for ALL users
+            LunarisCard(
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.5.dp, Color(0xFFE9D5FF)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "Ganti Password",
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Ganti Kata Sandi (Change Password)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF5B21B6)
+                        )
+                    }
+
+                    Text(
+                        text = "Perbarui kata sandi Anda secara berkala untuk menjaga keamanan akun.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B7280)
+                    )
+
+                    // Current Password
+                    OutlinedTextField(
+                        value = currentPassInput,
+                        onValueChange = { currentPassInput = it },
+                        label = { Text("Password Saat Ini *") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF8B5CF6))
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { isCurrentPassVisible = !isCurrentPassVisible }) {
+                                Icon(
+                                    imageVector = if (isCurrentPassVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle Current Password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (isCurrentPassVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF8B5CF6),
+                            focusedLabelColor = Color(0xFF8B5CF6)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_current_password")
+                    )
+
+                    // New Password
+                    OutlinedTextField(
+                        value = newPassInput,
+                        onValueChange = { newPassInput = it },
+                        label = { Text("Password Baru (min. 4 karakter) *") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF8B5CF6))
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { isNewPassVisible = !isNewPassVisible }) {
+                                Icon(
+                                    imageVector = if (isNewPassVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle New Password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (isNewPassVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF8B5CF6),
+                            focusedLabelColor = Color(0xFF8B5CF6)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_new_password_change")
+                    )
+
+                    // Confirm New Password
+                    OutlinedTextField(
+                        value = confirmPassInput,
+                        onValueChange = { confirmPassInput = it },
+                        label = { Text("Konfirmasi Password Baru *") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF8B5CF6))
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { isConfirmPassVisible = !isConfirmPassVisible }) {
+                                Icon(
+                                    imageVector = if (isConfirmPassVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle Confirm Password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (isConfirmPassVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF8B5CF6),
+                            focusedLabelColor = Color(0xFF8B5CF6)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_confirm_password_change")
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.changeUserPassword(
+                                usernameInput = loggedInUser,
+                                currentPassInput = currentPassInput,
+                                newPassInput = newPassInput,
+                                confirmPassInput = confirmPassInput
+                            ) { success, message ->
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                if (success) {
+                                    currentPassInput = ""
+                                    newPassInput = ""
+                                    confirmPassInput = ""
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("btn_change_password")
+                    ) {
+                        Text(
+                            text = "Perbarui Password",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Logout Button
             Button(
@@ -650,6 +865,7 @@ fun ProfileScreen(
 @Composable
 fun ImageCropDialog(
     imageUri: Uri,
+    title: String = "Sesuaikan Foto Profil",
     onDismiss: () -> Unit,
     onCropSuccess: (Uri) -> Unit
 ) {
@@ -706,7 +922,7 @@ fun ImageCropDialog(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Sesuaikan Foto Profil",
+                    text = title,
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,

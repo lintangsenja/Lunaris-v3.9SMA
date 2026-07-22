@@ -1,5 +1,6 @@
 package com.example.ui.screens
 import com.example.ui.components.LunarisCard
+import coil.compose.AsyncImage
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -419,6 +420,26 @@ fun DashboardScreen(
     val scrollState = rememberScrollState()
     var selectedFilter by remember { mutableStateOf("Harian") }
 
+    val userProfilePhoto by viewModel.userProfilePhoto.collectAsState()
+    val userProfileBitmap = remember(userProfilePhoto) {
+        if (userProfilePhoto.isNotEmpty()) {
+            try {
+                val uri = android.net.Uri.parse(userProfilePhoto)
+                val inputStream = context.contentResolver.openInputStream(uri)
+                android.graphics.BitmapFactory.decodeStream(inputStream)?.asImageBitmap()
+            } catch (e: Exception) {
+                try {
+                    val file = java.io.File(userProfilePhoto)
+                    if (file.exists()) {
+                        android.graphics.BitmapFactory.decodeFile(userProfilePhoto)?.asImageBitmap()
+                    } else null
+                } catch (ex: Exception) {
+                    null
+                }
+            }
+        } else null
+    }
+
     val logoFile = remember(instansiLogoPath) {
         if (instansiLogoPath.isNotEmpty() && !instansiLogoPath.startsWith("content://") && !instansiLogoPath.startsWith("file://")) {
             try {
@@ -483,7 +504,7 @@ fun DashboardScreen(
                         Box(
                             modifier = Modifier.size(54.dp)
                         ) {
-                            // Avatar circle using DynamicLogo
+                            // Avatar circle using user profile photo
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -494,11 +515,28 @@ fun DashboardScreen(
                                     .border(1.dp, Color(0xFFE9D5FF), CircleShape)
                                     .clip(CircleShape)
                             ) {
-                                DynamicLogo(
-                                    modifier = Modifier.fillMaxSize(),
-                                    defaultIconTint = Color(0xFF7C3AED),
-                                    contentDescription = "Logo Instansi"
-                                )
+                                if (userProfileBitmap != null) {
+                                    Image(
+                                        bitmap = userProfileBitmap,
+                                        contentDescription = "Foto Profil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else if (userProfilePhoto.isNotBlank()) {
+                                    AsyncImage(
+                                        model = userProfilePhoto,
+                                        contentDescription = "Foto Profil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Foto Profil",
+                                        tint = Color(0xFF7C3AED),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
                             // Active status dot
                             Box(
@@ -762,7 +800,7 @@ fun DashboardScreen(
                                 }
                             }
 
-                            // Avatar / Logo Container
+                            // Avatar / Profile Photo Container
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -771,12 +809,30 @@ fun DashboardScreen(
                                     .background(Color.White, CircleShape)
                                     .border(1.5.dp, Color(0xFFE9D5FF), CircleShape)
                                     .clip(CircleShape)
+                                    .clickable { showProfileBottomSheet = true }
                             ) {
-                                DynamicLogo(
-                                    modifier = Modifier.fillMaxSize(),
-                                    defaultIconTint = Color(0xFF7C3AED),
-                                    contentDescription = "Logo Instansi"
-                                )
+                                if (userProfileBitmap != null) {
+                                    Image(
+                                        bitmap = userProfileBitmap,
+                                        contentDescription = "Foto Profil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else if (userProfilePhoto.isNotBlank()) {
+                                    AsyncImage(
+                                        model = userProfilePhoto,
+                                        contentDescription = "Foto Profil",
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Foto Profil",
+                                        tint = Color(0xFF7C3AED),
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -959,26 +1015,23 @@ fun DashboardScreen(
 
         fun isMenuAllowedForSiswa(route: String): Boolean {
             if (userRole.contains("admin", ignoreCase = true)) return true
-            if (route == "Scan QR") {
-                return (studentPermissions["scan_qr"] == true) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] == true)
-            }
-            val permKey = when (route) {
-                "Alat" -> "alat"
-                "Bahan" -> "bahan"
-                "Pemakaian Bahan" -> "pemakaian_bahan"
-                "Bahan Afkir" -> "bahan_afkir"
-                "Alat Rusak" -> "alat_rusak"
-                "Pemeliharaan" -> "pemeliharaan"
-                "Peminjaman" -> "peminjaman"
-                "Pengembalian" -> "pengembalian"
-                "Kondisi Alat" -> "kondisi_alat"
-                "Log Transaksi" -> "log_transaksi"
-                "Master Data" -> "master_data"
-                "Stok Opname" -> "stok_opname"
-                "Laporan" -> "laporan"
+            return when (route) {
+                "Scan QR" -> (studentPermissions["scan_qr"] == true) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] == true)
+                "Alat" -> (studentPermissions["alat"] == true) || (studentPermissions["alat_view"] == true) || (studentPermissions["alat_detail"] == true) || (studentPermissions["alat_import"] == true) || (studentPermissions["alat_export"] == true)
+                "Bahan" -> (studentPermissions["bahan"] == true) || (studentPermissions["bahan_view"] == true) || (studentPermissions["bahan_detail"] == true) || (studentPermissions["bahan_import"] == true) || (studentPermissions["bahan_export"] == true)
+                "Pemakaian Bahan" -> (studentPermissions["pemakaian_bahan"] == true) || (studentPermissions["pemakaian_bahan_form"] == true) || (studentPermissions["pemakaian_bahan_log"] == true)
+                "Bahan Afkir" -> (studentPermissions["bahan_afkir"] == true) || (studentPermissions["bahan_afkir_submit"] == true) || (studentPermissions["bahan_afkir_view"] == true)
+                "Alat Rusak" -> (studentPermissions["alat_rusak"] == true) || (studentPermissions["alat_rusak_submit"] == true) || (studentPermissions["alat_rusak_view"] == true)
+                "Pemeliharaan" -> (studentPermissions["pemeliharaan"] == true) || (studentPermissions["pemeliharaan_tambah"] == true) || (studentPermissions["pemeliharaan_view"] == true)
+                "Peminjaman" -> (studentPermissions["peminjaman"] == true) || (studentPermissions["peminjaman_form"] == true) || (studentPermissions["peminjaman_riwayat"] == true)
+                "Pengembalian" -> (studentPermissions["pengembalian"] == true) || (studentPermissions["pengembalian_normal"] == true) || (studentPermissions["pengembalian_parsial"] == true)
+                "Kondisi Alat" -> (studentPermissions["kondisi_alat"] == true) || (studentPermissions["kondisi_alat_catat"] == true) || (studentPermissions["kondisi_alat_view"] == true)
+                "Log Transaksi" -> (studentPermissions["log_transaksi"] == true) || (studentPermissions["log_sirkulasi"] == true) || (studentPermissions["log_bahan_habis"] == true) || (studentPermissions["log_stok"] == true) || (studentPermissions["log_pemeliharaan"] == true) || (studentPermissions["log_aktivitas"] == true)
+                "Master Data" -> (studentPermissions["master_data"] == true) || (studentPermissions["master_data_view"] == true) || (studentPermissions["master_data_manage"] == true)
+                "Stok Opname" -> (studentPermissions["stok_opname"] == true) || (studentPermissions["stok_opname_audit"] == true) || (studentPermissions["stok_opname_reconcile"] == true)
+                "Laporan" -> (studentPermissions["laporan"] == true) || (studentPermissions["laporan_ringkasan"] == true) || (studentPermissions["laporan_alat"] == true) || (studentPermissions["laporan_bahan"] == true) || (studentPermissions["laporan_afkir"] == true) || (studentPermissions["laporan_peminjaman"] == true) || (studentPermissions["laporan_pengembalian"] == true) || (studentPermissions["laporan_alat_rusak"] == true) || (studentPermissions["laporan_pemeliharaan"] == true) || (studentPermissions["laporan_export_excel"] == true) || (studentPermissions["laporan_print_pdf"] == true)
                 else -> true
             }
-            return studentPermissions[permKey] == true
         }
 
         val operasionalMenus = remember(userRole, studentPermissions) {
@@ -1934,7 +1987,7 @@ fun DashboardScreen(
                 Box(
                     modifier = Modifier.size(90.dp)
                 ) {
-                    if (logoBitmap != null) {
+                    if (userProfileBitmap != null) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -1945,7 +1998,26 @@ fun DashboardScreen(
                                 .border(2.dp, if (isDark) Color(0x66A78BFA) else Color(0xFFE9D5FF), CircleShape)
                         ) {
                             Image(
-                                bitmap = logoBitmap,
+                                bitmap = userProfileBitmap,
+                                contentDescription = "Foto Profil",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    } else if (userProfilePhoto.isNotBlank()) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .align(Alignment.Center)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(2.dp, if (isDark) Color(0x66A78BFA) else Color(0xFFE9D5FF), CircleShape)
+                        ) {
+                            AsyncImage(
+                                model = userProfilePhoto,
                                 contentDescription = "Foto Profil",
                                 modifier = Modifier
                                     .fillMaxSize()

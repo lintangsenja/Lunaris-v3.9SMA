@@ -62,7 +62,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             settingsRepository.setOfficerNip(nip)
             settingsRepository.setInstansiName(namaInstansi)
             if (fotoUri.isNotEmpty()) {
-                settingsRepository.setInstansiLogoPath(fotoUri)
+                settingsRepository.setUserProfilePhoto(fotoUri)
             }
             
             onComplete()

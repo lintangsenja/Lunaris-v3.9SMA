@@ -96,6 +96,7 @@ fun UserManagementScreen(
 
     var showAddUserDialog by remember { mutableStateOf(false) }
     var userToDelete by remember { mutableStateOf<UserEntity?>(null) }
+    var userToResetPassword by remember { mutableStateOf<UserEntity?>(null) }
 
     val filteredUsers = remember(allUsers, searchQuery, selectedRoleFilter) {
         allUsers.filter { user ->
@@ -343,12 +344,29 @@ fun UserManagementScreen(
                         UserCardItem(
                             user = user,
                             isActiveUser = user.username.equals(activeUser, ignoreCase = true),
+                            onResetPasswordClick = { userToResetPassword = user },
                             onDeleteClick = { userToDelete = user }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Reset Password Dialog
+    userToResetPassword?.let { targetUser ->
+        ResetPasswordDialog(
+            user = targetUser,
+            onDismiss = { userToResetPassword = null },
+            onSubmit = { newPassword ->
+                viewModel.resetStudentPassword(targetUser.username, newPassword) { success, message ->
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    if (success) {
+                        userToResetPassword = null
+                    }
+                }
+            }
+        )
     }
 
     // Add User Dialog
@@ -412,6 +430,7 @@ fun UserManagementScreen(
 fun UserCardItem(
     user: UserEntity,
     isActiveUser: Boolean,
+    onResetPasswordClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val roleBgColor = when (user.role) {
@@ -556,35 +575,149 @@ fun UserCardItem(
                     user.username.equals("lintang", ignoreCase = true) ||
                     user.role == "super_admin"
 
-            // Delete Action
-            if (!isActiveUser && !isProtectedUser) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Reset Password Action
                 IconButton(
-                    onClick = onDeleteClick,
-                    modifier = Modifier.testTag("btn_delete_user_${user.username}")
+                    onClick = onResetPasswordClick,
+                    modifier = Modifier.testTag("btn_reset_password_${user.username}")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Hapus User",
-                        tint = MaterialTheme.colorScheme.error
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Reset Password",
+                        tint = Color(0xFF3B82F6)
                     )
                 }
-            } else if (isProtectedUser && !isActiveUser) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF7C3AED).copy(alpha = 0.12f))
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "Terproteksi",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF7C3AED)
-                    )
+
+                // Delete Action
+                if (!isActiveUser && !isProtectedUser) {
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.testTag("btn_delete_user_${user.username}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Hapus User",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else if (isProtectedUser && !isActiveUser) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF7C3AED).copy(alpha = 0.12f))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Terproteksi",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7C3AED)
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+fun ResetPasswordDialog(
+    user: UserEntity,
+    onDismiss: () -> Unit,
+    onSubmit: (newPassword: String) -> Unit
+) {
+    var newPassword by remember { mutableStateOf("") }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Reset Kata Sandi User", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "Username: ${user.username}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        if (user.fullName.isNotBlank()) {
+                            Text(
+                                text = "Nama Lengkap: ${user.fullName}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("Kata Sandi Baru *") },
+                    placeholder = { Text("minimal 4 karakter") },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Lock, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                            Icon(
+                                imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Toggle password"
+                            )
+                        }
+                    },
+                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("input_reset_password_dialog")
+                )
+
+                Text(
+                    text = "* Kata sandi baru akan diperbarui di database lokal Room dan disinkronkan ke Firestore sehingga pengguna/siswa dapat langsung login.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSubmit(newPassword)
+                },
+                enabled = newPassword.isNotBlank() && newPassword.length >= 4,
+                modifier = Modifier.testTag("btn_submit_reset_password")
+            ) {
+                Text("Simpan Kata Sandi", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }
 
 @Composable

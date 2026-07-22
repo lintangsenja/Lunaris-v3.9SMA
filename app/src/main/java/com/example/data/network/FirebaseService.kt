@@ -263,4 +263,33 @@ class FirebaseService(private val db: AppDatabase) {
             }
         }
     }
+
+    fun clearAllTransactionsFromFirestore(onComplete: (() -> Unit)? = null) {
+        scope.launch {
+            try {
+                val collections = listOf("transactions", "loan_items", "pemakaian_bahan", "bahan_afkir", "damaged_items")
+                for (coll in collections) {
+                    firestore.collection(coll).get()
+                        .addOnSuccessListener { snapshot ->
+                            if (snapshot != null && !snapshot.isEmpty) {
+                                val batch = firestore.batch()
+                                for (doc in snapshot.documents) {
+                                    batch.delete(doc.reference)
+                                }
+                                batch.commit().addOnCompleteListener {
+                                    Log.d("FirebaseService", "Cleared collection $coll from Firestore.")
+                                }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("FirebaseService", "Error querying collection $coll for deletion", e)
+                        }
+                }
+                onComplete?.invoke()
+            } catch (e: Exception) {
+                Log.e("FirebaseService", "Exception clearing Firestore transaction collections", e)
+                onComplete?.invoke()
+            }
+        }
+    }
 }

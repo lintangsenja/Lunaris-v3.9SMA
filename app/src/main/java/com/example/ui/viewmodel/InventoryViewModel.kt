@@ -153,12 +153,10 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             "peminjaman" to false,
             "peminjaman_form" to false,
             "peminjaman_riwayat" to false,
-            "peminjaman_print" to false,
 
             "pengembalian" to false,
             "pengembalian_normal" to false,
             "pengembalian_parsial" to false,
-            "pengembalian_print" to false,
 
             "qr_group" to false,
             "scan_qr" to false,
@@ -172,39 +170,32 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             "log_stok" to false,
             "log_pemeliharaan" to false,
             "log_aktivitas" to false,
-            "log_export_excel" to false,
-            "log_print_pdf" to false,
 
             "alat" to false,
             "alat_view" to false,
             "alat_detail" to false,
             "alat_import" to false,
             "alat_export" to false,
-            "alat_print" to false,
 
             "kondisi_alat" to false,
             "kondisi_alat_catat" to false,
             "kondisi_alat_view" to false,
             "kondisi_alat_report" to false,
-            "kondisi_alat_print" to false,
 
             "alat_rusak" to false,
             "alat_rusak_submit" to false,
             "alat_rusak_view" to false,
-            "alat_rusak_print" to false,
 
             "pemeliharaan" to false,
             "pemeliharaan_tambah" to false,
             "pemeliharaan_view" to false,
             "pemeliharaan_history" to false,
-            "pemeliharaan_print" to false,
 
             "bahan" to false,
             "bahan_view" to false,
             "bahan_detail" to false,
             "bahan_import" to false,
             "bahan_export" to false,
-            "bahan_print" to false,
 
             "pemakaian_bahan" to false,
             "pemakaian_bahan_form" to false,
@@ -214,7 +205,6 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             "bahan_afkir_submit" to false,
             "bahan_afkir_view" to false,
             "bahan_afkir_report" to false,
-            "bahan_afkir_print" to false,
 
             "master_data" to false,
             "master_data_view" to false,
@@ -352,7 +342,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     createdAt = System.currentTimeMillis()
                 )
                 db.inventoryDao().insertUser(newUser)
-                writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa", fullName)
+                writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa", fullName, password)
                 onResult(true, "Pengguna '$username' berhasil ditambahkan!")
             } catch (e: Exception) {
                 Log.e("InventoryVM", "Error registering user", e)
@@ -375,6 +365,12 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 db.inventoryDao().deleteUserByUsername(usernameToDelete)
+                try {
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("users").document(usernameToDelete).delete()
+                } catch (ex: Exception) {
+                    Log.e("InventoryVM", "Error deleting user from Firestore", ex)
+                }
                 onResult(true, "Pengguna '$usernameToDelete' berhasil dihapus!")
             } catch (e: Exception) {
                 Log.e("InventoryVM", "Error deleting user", e)
@@ -383,7 +379,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun writeUserToFirestore(username: String, role: String, fullName: String = "") {
+    private fun writeUserToFirestore(username: String, role: String, fullName: String = "", password: String = "") {
         try {
             val dbFirestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
             val resolvedFullName = when {
@@ -392,7 +388,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 username.equals("admin", ignoreCase = true) -> "Super Admin"
                 else -> ""
             }
-            val userData = hashMapOf(
+            val userData = hashMapOf<String, Any>(
                 "username" to username,
                 "role" to role,
                 "fullName" to resolvedFullName,
@@ -401,9 +397,191 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 "isActive" to true,
                 "lastLogin" to System.currentTimeMillis()
             )
-            dbFirestore.collection("users").document(username).set(userData)
+            if (password.isNotBlank()) {
+                userData["password"] = password
+            }
+            dbFirestore.collection("users").document(username).set(userData, com.google.firebase.firestore.SetOptions.merge())
         } catch (e: Exception) {
             Log.e("InventoryVM", "Failed to write user to Firestore", e)
+        }
+    }
+
+    fun resetStudentPassword(
+        usernameToReset: String,
+        newPasswordInput: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val username = usernameToReset.trim()
+        val newPassword = newPasswordInput.trim()
+
+        if (username.isBlank() || newPassword.isBlank()) {
+            onResult(false, "Username dan kata sandi baru tidak boleh kosong!")
+            return
+        }
+
+        if (newPassword.length < 4) {
+            onResult(false, "Kata sandi baru minimal 4 karakter!")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val user = db.inventoryDao().getUserByUsername(username)
+                val targetUser = if (user != null) {
+                    user.copy(password = newPassword)
+                } else {
+                    val role = if (username.equals("siswa", ignoreCase = true)) "siswa" else "admin"
+                    val defaultName = when (username.lowercase()) {
+                        "lintang" -> "Lintang Senja"
+                        "admin" -> "Super Admin"
+                        else -> "Siswa Lunaris"
+                    }
+                    UserEntity(
+                        username = username,
+                        password = newPassword,
+                        role = role,
+                        fullName = defaultName
+                    )
+                }
+
+                db.inventoryDao().insertUser(targetUser)
+                writeUserToFirestore(
+                    username = username,
+                    role = if (targetUser.role == "super_admin" || targetUser.role == "admin") "admin" else "siswa",
+                    fullName = targetUser.fullName,
+                    password = newPassword
+                )
+
+                onResult(true, "Kata sandi untuk pengguna '$username' berhasil diperbarui!")
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error resetting student password", e)
+                onResult(false, "Gagal mereset kata sandi: ${e.message}")
+            }
+        }
+    }
+
+    fun updateUserProfileData(
+        usernameInput: String,
+        fullNameInput: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val username = usernameInput.trim()
+        val fullName = fullNameInput.trim()
+
+        if (username.isBlank()) {
+            onResult(false, "Username tidak valid!")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val existingUser = db.inventoryDao().getUserByUsername(username)
+                if (existingUser != null) {
+                    val updatedUser = existingUser.copy(fullName = fullName)
+                    db.inventoryDao().insertUser(updatedUser)
+                    writeUserToFirestore(username, if (existingUser.role == "super_admin" || existingUser.role == "admin") "admin" else "siswa", fullName)
+                    onResult(true, "Data profil berhasil diperbarui!")
+                } else {
+                    val role = if (username.equals("siswa", ignoreCase = true)) "siswa" else "super_admin"
+                    val defaultPass = when (username.lowercase()) {
+                        "lintang" -> "lintanglunaris"
+                        "admin" -> "admin123"
+                        else -> "siswa19"
+                    }
+                    val newUser = UserEntity(
+                        username = username,
+                        password = defaultPass,
+                        role = role,
+                        fullName = fullName
+                    )
+                    db.inventoryDao().insertUser(newUser)
+                    writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa", fullName)
+                    onResult(true, "Data profil berhasil disimpan!")
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error updating profile data", e)
+                onResult(false, "Gagal memperbarui profil: ${e.message}")
+            }
+        }
+    }
+
+    fun changeUserPassword(
+        usernameInput: String,
+        currentPassInput: String,
+        newPassInput: String,
+        confirmPassInput: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val username = usernameInput.trim()
+        val currentPass = currentPassInput.trim()
+        val newPass = newPassInput.trim()
+        val confirmPass = confirmPassInput.trim()
+
+        if (currentPass.isBlank() || newPass.isBlank() || confirmPass.isBlank()) {
+            onResult(false, "Semua bidang password wajib diisi!")
+            return
+        }
+
+        if (newPass.length < 4) {
+            onResult(false, "Password baru minimal 4 karakter!")
+            return
+        }
+
+        if (newPass != confirmPass) {
+            onResult(false, "Konfirmasi password baru tidak cocok!")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                var user = db.inventoryDao().getUserByUsername(username)
+                if (user == null) {
+                    val defaultValid = when (username.lowercase()) {
+                        "lintang" -> currentPass == "lintanglunaris"
+                        "admin" -> currentPass == "admin123"
+                        "siswa" -> currentPass == "siswa19"
+                        else -> false
+                    }
+                    if (!defaultValid) {
+                        onResult(false, "Password saat ini tidak sesuai!")
+                        return@launch
+                    }
+                    val role = if (username.equals("siswa", ignoreCase = true)) "siswa" else "super_admin"
+                    val defaultName = when (username.lowercase()) {
+                        "lintang" -> "Lintang Senja"
+                        "admin" -> "Super Admin"
+                        else -> "Siswa Lunaris"
+                    }
+                    user = UserEntity(
+                        username = username,
+                        password = currentPass,
+                        role = role,
+                        fullName = defaultName
+                    )
+                    db.inventoryDao().insertUser(user)
+                }
+
+                if (user.password != currentPass) {
+                    onResult(false, "Password saat ini tidak sesuai!")
+                    return@launch
+                }
+
+                val updatedUser = user.copy(password = newPass)
+                db.inventoryDao().insertUser(updatedUser)
+                writeUserToFirestore(username, if (user.role == "super_admin" || user.role == "admin") "admin" else "siswa", user.fullName)
+
+                try {
+                    val authUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    authUser?.updatePassword(newPass)
+                } catch (e: Exception) {
+                    Log.e("InventoryVM", "Firebase auth update password failed", e)
+                }
+
+                onResult(true, "Kata sandi berhasil diperbarui!")
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error changing user password", e)
+                onResult(false, "Gagal mengubah kata sandi: ${e.message}")
+            }
         }
     }
 
@@ -839,6 +1017,9 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     private val _instansiLogoPath = MutableStateFlow(settingsRepository.getInstansiLogoPath())
     val instansiLogoPath = _instansiLogoPath.asStateFlow()
 
+    private val _userProfilePhoto = MutableStateFlow(settingsRepository.getUserProfilePhoto())
+    val userProfilePhoto: StateFlow<String> = _userProfilePhoto.asStateFlow()
+
     private val _merekAlat = MutableStateFlow(settingsRepository.getMerekAlat())
     val merekAlat = _merekAlat.asStateFlow()
 
@@ -945,7 +1126,9 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                         _defaultOfficer.value = it.namaPetugas
                         _officerNip.value = it.nip
                         _instansiName.value = it.namaInstansi
-                        _instansiLogoPath.value = it.fotoUri
+                        if (it.fotoUri.isNotBlank()) {
+                            _userProfilePhoto.value = it.fotoUri
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1022,16 +1205,30 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun updateInstansiLogoPath(path: String) {
-        settingsRepository.setInstansiLogoPath(path)
-        _instansiLogoPath.value = path
+    fun updateUserProfilePhoto(path: String) {
+        settingsRepository.setUserProfilePhoto(path)
+        _userProfilePhoto.value = path
         viewModelScope.launch {
             try {
                 val dao = db.inventoryDao()
                 val existing = dao.getProfile() ?: com.example.data.entity.ProfileEntity(namaPetugas = "", nip = "", namaInstansi = "", fotoUri = "")
                 dao.insertProfile(existing.copy(fotoUri = path))
             } catch (e: Exception) {
-                Log.e("InventoryVM", "Error updating instansi logo path", e)
+                Log.e("InventoryVM", "Error updating user profile photo", e)
+            }
+        }
+    }
+
+    fun updateInstansiLogoPath(path: String) {
+        settingsRepository.setInstansiLogoPath(path)
+        _instansiLogoPath.value = path
+        viewModelScope.launch {
+            try {
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val docRef = firestore.collection("pengaturan_global").document("profil_admin")
+                docRef.set(mapOf("logo_url" to path), com.google.firebase.firestore.SetOptions.merge())
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error syncing instansi logo path to firestore", e)
             }
         }
     }
@@ -2337,10 +2534,29 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         return repository.getTransactionDetail(idTransaksi)
     }
 
+    fun clearAllTransactionsData(onCompleted: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.clearAllTransactions()
+                firebaseService.clearAllTransactionsFromFirestore()
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error clearing all transactions", e)
+            } finally {
+                onCompleted()
+            }
+        }
+    }
+
     fun clearAllLocalData(onCompleted: () -> Unit) {
         viewModelScope.launch {
-            repository.clearAllData()
-            onCompleted()
+            try {
+                repository.clearAllData()
+                firebaseService.clearAllTransactionsFromFirestore()
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error clearing all local data", e)
+            } finally {
+                onCompleted()
+            }
         }
     }
 
@@ -2823,6 +3039,9 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 dao.deleteDemoDamagedItems()
                 dao.deleteDemoPemakaianBahan()
                 dao.deleteDemoBahanAfkir()
+
+                // Clear Firestore transaction collections as well
+                firebaseService.clearAllTransactionsFromFirestore()
 
                 // 2. Clear SharedPreferences demo entries
                 val demoMerekAlat = listOf("ASUS", "Epson", "Canon", "Hikvision", "Polytron", "Logitech", "Makita", "Bosch", "Dekko", "Philips", "Lenovo", "HP", "Samsung", "Panasonic", "Sony")

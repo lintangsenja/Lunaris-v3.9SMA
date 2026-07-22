@@ -107,13 +107,17 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
 
+                    val hasMasterDataPerm = studentPermissions["master_data"] == true || studentPermissions["master_data_view"] == true || studentPermissions["master_data_manage"] == true
+                    val hasScanQrPerm = studentPermissions["scan_qr"] == true || studentPermissions["generate_qr"] == true || studentPermissions["qr_group"] == true
+                    val hasLaporanPerm = studentPermissions["laporan"] == true || studentPermissions["laporan_ringkasan"] == true || studentPermissions["laporan_alat"] == true || studentPermissions["laporan_bahan"] == true || studentPermissions["laporan_afkir"] == true || studentPermissions["laporan_peminjaman"] == true || studentPermissions["laporan_pengembalian"] == true || studentPermissions["laporan_alat_rusak"] == true || studentPermissions["laporan_pemeliharaan"] == true || studentPermissions["laporan_export_excel"] == true || studentPermissions["laporan_print_pdf"] == true
+
                     val mainDestinations = if (userRole == "admin") {
                         listOf("dashboard", "master_data", "scan_qr", "laporan", "profil")
                     } else {
                         val list = mutableListOf("dashboard")
-                        if (studentPermissions["master_data"] == true) list.add("master_data")
-                        if (studentPermissions["scan_qr"] != false) list.add("scan_qr")
-                        if (studentPermissions["laporan"] == true) list.add("laporan")
+                        if (hasMasterDataPerm) list.add("master_data")
+                        if (hasScanQrPerm) list.add("scan_qr")
+                        if (hasLaporanPerm) list.add("laporan")
                         list.add("profil")
                         list
                     }
@@ -149,13 +153,13 @@ class MainActivity : ComponentActivity() {
                                             )
                                         } else {
                                             val t = mutableListOf(Triple("Dashboard", "dashboard", Icons.Default.Home))
-                                            if (studentPermissions["master_data"] == true) {
+                                            if (hasMasterDataPerm) {
                                                 t.add(Triple("Master Data", "master_data", Icons.Default.Storage))
                                             }
-                                            if (studentPermissions["scan_qr"] != false) {
+                                            if (hasScanQrPerm) {
                                                 t.add(Triple("Scan QR", "scan_qr", Icons.Default.QrCode))
                                             }
-                                            if (studentPermissions["laporan"] == true) {
+                                            if (hasLaporanPerm) {
                                                 t.add(Triple("Laporan", "laporan", Icons.Default.Assessment))
                                             }
                                             t.add(Triple("Profil", "profil", Icons.Default.Person))

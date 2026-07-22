@@ -93,8 +93,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFF059669),
                         subItems = listOf(
                             PermissionSubItemData("peminjaman_form", "Form Ajukan Peminjaman", "Mengisi formulir pengajuan peminjaman alat", false),
-                            PermissionSubItemData("peminjaman_riwayat", "Riwayat Peminjaman", "Melihat riwayat & status peminjaman aktif/selesai", false),
-                            PermissionSubItemData("peminjaman_print", "Print / Cetak Bukti", "Mencetak / mengunduh bukti tanda terima peminjaman", false)
+                            PermissionSubItemData("peminjaman_riwayat", "Riwayat Peminjaman", "Melihat riwayat & status peminjaman aktif/selesai", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -106,8 +105,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFF4F46E5),
                         subItems = listOf(
                             PermissionSubItemData("pengembalian_normal", "Pengembalian Normal", "Proses pengembalian alat dalam kondisi baik", false),
-                            PermissionSubItemData("pengembalian_parsial", "Pengembalian Parsial / Rusak", "Proses pengembalian barang rusak / bertahap", false),
-                            PermissionSubItemData("pengembalian_print", "Print / Cetak Bukti", "Mencetak bukti pengembalian alat", false)
+                            PermissionSubItemData("pengembalian_parsial", "Pengembalian Parsial / Rusak", "Proses pengembalian barang rusak / bertahap", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -134,9 +132,7 @@ fun RoleManagementScreen(
                             PermissionSubItemData("log_bahan_habis", "Bahan Habis", "Catatan transaksi pemakaian bahan habis pakai", false),
                             PermissionSubItemData("log_stok", "Manajemen Stok", "Catatan perubahan & penyesuaian stok", false),
                             PermissionSubItemData("log_pemeliharaan", "Pemeliharaan", "Catatan jadwal & tindakan pemeliharaan", false),
-                            PermissionSubItemData("log_aktivitas", "Aktivitas Sistem", "Log audit aktivitas & pengaksesan sistem", false),
-                            PermissionSubItemData("log_export_excel", "Export Laporan Excel", "Ekspor data log transaksi ke format Excel (.xlsx)", false),
-                            PermissionSubItemData("log_print_pdf", "Cetak / PDF Report", "Mencetak laporan log transaksi ke format PDF", false)
+                            PermissionSubItemData("log_aktivitas", "Aktivitas Sistem", "Log audit aktivitas & pengaksesan sistem", false)
                         )
                     )
                 )
@@ -157,8 +153,7 @@ fun RoleManagementScreen(
                             PermissionSubItemData("alat_view", "Katalog Alat", "Melihat katalog & ketersediaan stok alat", false),
                             PermissionSubItemData("alat_detail", "Detail Spesifikasi", "Melihat detail spesifikasi teknis alat", false),
                             PermissionSubItemData("alat_import", "Import Data Excel/CSV", "Mengimpor data alat dari file Excel/CSV", false),
-                            PermissionSubItemData("alat_export", "Export Data", "Mengekspor daftar alat ke berkas Excel", false),
-                            PermissionSubItemData("alat_print", "Cetak / PDF", "Mencetak katalog daftar alat ke format PDF", false)
+                            PermissionSubItemData("alat_export", "Export Data", "Mengekspor daftar alat ke berkas Excel", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -170,8 +165,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFFE11D48),
                         subItems = listOf(
                             PermissionSubItemData("kondisi_alat_catat", "Pencatatan Kondisi", "Mencatat hasil pemeriksaan kondisi alat", false),
-                            PermissionSubItemData("kondisi_alat_view", "Riwayat Kondisi", "Melihat riwayat status kondisi kelayakan alat", false),
-                            PermissionSubItemData("kondisi_alat_print", "Print / Cetak Bukti", "Mencetak berita acara pemeriksaan kondisi alat", false)
+                            PermissionSubItemData("kondisi_alat_view", "Riwayat Kondisi", "Melihat riwayat status kondisi kelayakan alat", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -183,8 +177,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFFEF4444),
                         subItems = listOf(
                             PermissionSubItemData("alat_rusak_submit", "Tambah Alat Rusak", "Melaporkan / mencatat kejadian alat rusak", false),
-                            PermissionSubItemData("alat_rusak_view", "Riwayat Alat Rusak", "Melihat daftar & riwayat alat yang rusak", false),
-                            PermissionSubItemData("alat_rusak_print", "Print / Cetak Bukti", "Mencetak berita acara kerusakan alat", false)
+                            PermissionSubItemData("alat_rusak_view", "Riwayat Alat Rusak", "Melihat daftar & riwayat alat yang rusak", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -196,8 +189,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFF2563EB),
                         subItems = listOf(
                             PermissionSubItemData("pemeliharaan_tambah", "Tambah Pemeliharaan", "Membuat agenda pemeliharaan / perbaikan alat", false),
-                            PermissionSubItemData("pemeliharaan_view", "Riwayat Pemeliharaan", "Melihat jadwal & histori perawatan alat", false),
-                            PermissionSubItemData("pemeliharaan_print", "Print / Cetak Bukti", "Mencetak bukti / laporan pemeliharaan alat", false)
+                            PermissionSubItemData("pemeliharaan_view", "Riwayat Pemeliharaan", "Melihat jadwal & histori perawatan alat", false)
                         )
                     )
                 )
@@ -218,8 +210,7 @@ fun RoleManagementScreen(
                             PermissionSubItemData("bahan_view", "Katalog Bahan", "Melihat stok & daftar bahan habis pakai", false),
                             PermissionSubItemData("bahan_detail", "Detail Spesifikasi", "Melihat rincian lokasi simpan & spesifikasi bahan", false),
                             PermissionSubItemData("bahan_import", "Import Data Excel/CSV", "Mengimpor daftar bahan dari file Excel/CSV", false),
-                            PermissionSubItemData("bahan_export", "Export Data", "Mengekspor data stok bahan ke format Excel", false),
-                            PermissionSubItemData("bahan_print", "Cetak / PDF", "Mencetak daftar bahan habis pakai ke format PDF", false)
+                            PermissionSubItemData("bahan_export", "Export Data", "Mengekspor data stok bahan ke format Excel", false)
                         )
                     ),
                     PermissionParentItemData(
@@ -243,8 +234,7 @@ fun RoleManagementScreen(
                         iconColor = Color(0xFFEA580C),
                         subItems = listOf(
                             PermissionSubItemData("bahan_afkir_submit", "Catat Afkir", "Pencatatan bahan kedaluwarsa / rusak (afkir)", false),
-                            PermissionSubItemData("bahan_afkir_view", "Riwayat Afkir", "Melihat riwayat & daftar bahan afkir", false),
-                            PermissionSubItemData("bahan_afkir_print", "Print / Cetak Bukti", "Mencetak berita acara pemusnahan/afkir bahan", false)
+                            PermissionSubItemData("bahan_afkir_view", "Riwayat Afkir", "Melihat riwayat & daftar bahan afkir", false)
                         )
                     )
                 )
