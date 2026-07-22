@@ -31,12 +31,20 @@ interface InventoryDao {
           i.idBarang, 
           i.namaBarang, 
           i.stokAwal,
-          (i.stokAwal - COALESCE((
-              SELECT SUM(li.jumlah) 
-              FROM loan_items li 
-              INNER JOIN loan_transactions lt ON li.idTransaksi = lt.idTransaksi
-              WHERE li.idBarang = i.idBarang AND lt.status = 'Dipinjam'
-          ), 0) - i.stokRusak) AS stokTersedia,
+          CASE 
+            WHEN (i.stokAwal - COALESCE((
+                SELECT SUM(li.jumlah) 
+                FROM loan_items li 
+                INNER JOIN loan_transactions lt ON li.idTransaksi = lt.idTransaksi
+                WHERE li.idBarang = i.idBarang AND lt.status = 'Dipinjam'
+            ), 0) - i.stokRusak) < 0 THEN 0
+            ELSE (i.stokAwal - COALESCE((
+                SELECT SUM(li.jumlah) 
+                FROM loan_items li 
+                INNER JOIN loan_transactions lt ON li.idTransaksi = lt.idTransaksi
+                WHERE li.idBarang = i.idBarang AND lt.status = 'Dipinjam'
+            ), 0) - i.stokRusak)
+          END AS stokTersedia,
           i.kategori,
           i.satuan,
           i.stokRusak,

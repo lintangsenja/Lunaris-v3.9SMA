@@ -1130,11 +1130,14 @@ fun PeminjamanScreen(
                         return@Button
                     }
 
-                    // Assemble lines and map to integer
-                    val linesToSubmit = mutableListOf<Pair<String, Int>>()
+                    // Assemble lines and map to integer, auto-merging duplicate rows
+                    val mergedMap = LinkedHashMap<String, Int>()
+                    val originalNameMap = HashMap<String, String>()
+
                     for (line in borrowedLines) {
+                        val rawItem = line.first.trim()
                         val qtyVal = line.second.toIntOrNull()
-                        if (line.first.trim().isBlank()) {
+                        if (rawItem.isBlank()) {
                             Toast.makeText(context, "Nama barang tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
@@ -1142,7 +1145,32 @@ fun PeminjamanScreen(
                             Toast.makeText(context, "Jumlah barang harus lebih besar dari 0!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        linesToSubmit.add(Pair(line.first.trim(), qtyVal))
+
+                        val matched = itemsState.find { it.idBarang.equals(rawItem, ignoreCase = true) || it.namaBarang.equals(rawItem, ignoreCase = true) }
+                        val canonicalKey = matched?.idBarang ?: rawItem.lowercase()
+                        val displayName = matched?.namaBarang ?: rawItem
+                        originalNameMap[canonicalKey] = displayName
+                        mergedMap[canonicalKey] = (mergedMap[canonicalKey] ?: 0) + qtyVal
+                    }
+
+                    // Pre-validate stock for merged items
+                    for ((key, totalQty) in mergedMap) {
+                        val displayName = originalNameMap[key] ?: key
+                        val matched = itemsState.find { it.idBarang.equals(key, ignoreCase = true) || it.namaBarang.equals(displayName, ignoreCase = true) }
+                        if (matched != null) {
+                            if (totalQty > matched.stokTersedia) {
+                                Toast.makeText(
+                                    context,
+                                    "Stok '${matched.namaBarang}' tidak mencukupi! Tersedia: ${matched.stokTersedia} ${matched.satuan}, total diminta: $totalQty",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@Button
+                            }
+                        }
+                    }
+
+                    val linesToSubmit = mergedMap.map { (key, totalQty) ->
+                        Pair(originalNameMap[key] ?: key, totalQty)
                     }
 
                     val durasiVal = durasiPeminjaman.trim().toIntOrNull() ?: 1
@@ -1274,8 +1302,22 @@ fun PeminjamanScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
-                                                // Fill the target row with the selected item's name (or ID)
-                                                borrowedLines[lineIdx] = Pair(item.namaBarang, borrowedLines[lineIdx].second)
+                                                val selectedName = item.namaBarang
+                                                val existingIndex = borrowedLines.indexOfFirst { (name, _) ->
+                                                    name.equals(selectedName, ignoreCase = true) || name.equals(item.idBarang, ignoreCase = true)
+                                                }
+                                                if (existingIndex != -1 && existingIndex != lineIdx) {
+                                                    val currentQty = borrowedLines[lineIdx].second.toIntOrNull() ?: 1
+                                                    val existingQty = borrowedLines[existingIndex].second.toIntOrNull() ?: 1
+                                                    val mergedQty = currentQty + existingQty
+                                                    borrowedLines[existingIndex] = Pair(borrowedLines[existingIndex].first, mergedQty.toString())
+                                                    if (borrowedLines.size > 1) {
+                                                        borrowedLines.removeAt(lineIdx)
+                                                    }
+                                                    Toast.makeText(context, "Item '$selectedName' sudah ada di baris #${existingIndex + 1}. Kuantitas digabungkan menjadi $mergedQty!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    borrowedLines[lineIdx] = Pair(selectedName, borrowedLines[lineIdx].second)
+                                                }
                                                 pickingLineIndex = null
                                             }
                                             .padding(vertical = 12.dp, horizontal = 8.dp)

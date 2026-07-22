@@ -1024,10 +1024,14 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                // Stock Validation
+                // Stock Validation for Consumable (BAHAN)
                 val existingItem = itemsWithStock.value.find { it.idBarang == idBarang }
-                if (existingItem != null && existingItem.stokTersedia < jumlahDiambil) {
-                    onError("Stok tidak mencukupi! Tersedia: ${existingItem.stokTersedia} ${existingItem.satuan}")
+                if (existingItem == null) {
+                    onError("Bahan '$namaBarang' tidak ditemukan di database master!")
+                    return@launch
+                }
+                if (existingItem.stokTersedia < jumlahDiambil) {
+                    onError("Stok bahan '${existingItem.namaBarang}' tidak mencukupi! Stok tersedia: ${existingItem.stokTersedia} ${existingItem.satuan}, diminta: $jumlahDiambil")
                     return@launch
                 }
 
@@ -1059,6 +1063,27 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 )
 
                 repository.recordPemakaian(newPemakaian)
+
+                // Sync updated stock to Firestore
+                val updatedStokAwal = (existingItem.stokAwal - jumlahDiambil).coerceAtLeast(0)
+                val updatedItemEntity = ItemEntity(
+                    idBarang = existingItem.idBarang,
+                    namaBarang = existingItem.namaBarang,
+                    stokAwal = updatedStokAwal,
+                    kategori = existingItem.kategori,
+                    satuan = existingItem.satuan,
+                    stokRusak = existingItem.stokRusak,
+                    merekAlat = existingItem.merekAlat,
+                    ruang = existingItem.ruang,
+                    sumberDana = existingItem.sumberDana,
+                    kondisi = existingItem.kondisi,
+                    keterangan = existingItem.keterangan,
+                    isDemo = existingItem.isDemo,
+                    type = existingItem.type,
+                    isBorrowable = existingItem.isBorrowable
+                )
+                firebaseService.saveItemToFirestore(updatedItemEntity)
+
                 onSuccess()
             } catch (e: Exception) {
                 onError("Gagal merekam pemakaian: ${e.localizedMessage ?: "Terjadi kesalahan"}")
@@ -1094,7 +1119,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 // Stock Validation
                 val existingItem = itemsWithStock.value.find { it.idBarang == idBarang }
                 if (existingItem != null && existingItem.stokTersedia < jumlahAfkir) {
-                    onError("Stok tidak mencukupi! Tersedia: ${existingItem.stokTersedia} ${existingItem.satuan}")
+                    onError("Stok bahan tidak mencukupi! Tersedia: ${existingItem.stokTersedia} ${existingItem.satuan}")
                     return@launch
                 }
 
@@ -1122,6 +1147,27 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 )
 
                 repository.recordBahanAfkir(newAfkir)
+
+                if (existingItem != null) {
+                    val updatedStokAwal = (existingItem.stokAwal - jumlahAfkir).coerceAtLeast(0)
+                    val updatedItemEntity = ItemEntity(
+                        idBarang = existingItem.idBarang,
+                        namaBarang = existingItem.namaBarang,
+                        stokAwal = updatedStokAwal,
+                        kategori = existingItem.kategori,
+                        satuan = existingItem.satuan,
+                        stokRusak = existingItem.stokRusak,
+                        merekAlat = existingItem.merekAlat,
+                        ruang = existingItem.ruang,
+                        sumberDana = existingItem.sumberDana,
+                        kondisi = existingItem.kondisi,
+                        keterangan = existingItem.keterangan,
+                        isDemo = existingItem.isDemo,
+                        type = existingItem.type,
+                        isBorrowable = existingItem.isBorrowable
+                    )
+                    firebaseService.saveItemToFirestore(updatedItemEntity)
+                }
 
                 // Log to loan_transactions for Condition & Maintenance
                 val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -1617,47 +1663,54 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 val loanItems = mutableListOf<LoanItemEntity>()
                 val itemsToRegister = mutableListOf<ItemEntity>()
 
-                // Track temporary stock updates to ensure multi-item borrow list validations are accurate
-                val tempStockMap = itemsWithStock.value.associate { it.idBarang to it.stokTersedia }.toMutableMap()
+                // 1. Normalize and combine duplicate item requests into a single line entry per item ID/Name
+                val mergedItemMap = LinkedHashMap<String, Int>() // Key: canonical identifier, Value: combined total qty
+                val displayNamesMap = HashMap<String, String>()
 
                 for (line in itemsToBorrow) {
-                    val inputNameOrId = line.first.trim()
+                    val inputKey = line.first.trim()
                     val qty = line.second
+                    if (inputKey.isBlank() || qty <= 0) continue
 
-                    if (inputNameOrId.isBlank()) {
-                        onError("Nama barang tidak boleh kosong!")
-                        return@launch
-                    }
-                    if (qty <= 0) {
-                        onError("Jumlah barang harus lebih besar dari 0!")
-                        return@launch
+                    val matched = itemsWithStock.value.find {
+                        it.idBarang.equals(inputKey, ignoreCase = true) || it.namaBarang.equals(inputKey, ignoreCase = true)
                     }
 
-                    // Look up by ID or by exact name
-                    val existingItems = itemsWithStock.value
-                    val existingItem = existingItems.find {
-                        it.idBarang == inputNameOrId || it.namaBarang.equals(inputNameOrId, ignoreCase = true)
+                    val canonicalId = matched?.idBarang ?: inputKey
+                    val displayName = matched?.namaBarang ?: inputKey
+                    displayNamesMap[canonicalId] = displayName
+                    mergedItemMap[canonicalId] = (mergedItemMap[canonicalId] ?: 0) + qty
+                }
+
+                if (mergedItemMap.isEmpty()) {
+                    onError("Harus ada minimal 1 barang valid yang dipinjam!")
+                    return@launch
+                }
+
+                // 2. Validate combined quantity against available stock (stokTersedia) for ALAT
+                for ((canonicalId, totalQty) in mergedItemMap) {
+                    val displayName = displayNamesMap[canonicalId] ?: canonicalId
+                    val matchedItem = itemsWithStock.value.find {
+                        it.idBarang.equals(canonicalId, ignoreCase = true) || it.namaBarang.equals(displayName, ignoreCase = true)
                     }
 
-                    if (existingItem != null) {
-                        val currentAvailable = tempStockMap[existingItem.idBarang] ?: 0
-                        if (currentAvailable < qty) {
-                            onError("Stok barang habis atau sedang keluar dipinjam semua!")
+                    if (matchedItem != null) {
+                        val availableStock = matchedItem.stokTersedia
+                        if (totalQty > availableStock) {
+                            onError("Stok '${matchedItem.namaBarang}' tidak mencukupi! Stok tersedia: $availableStock ${matchedItem.satuan}, total diminta: $totalQty.")
                             return@launch
                         }
-                        // Update temporary tracker for subsequent items in the same form
-                        tempStockMap[existingItem.idBarang] = currentAvailable - qty
 
                         loanItems.add(
                             LoanItemEntity(
                                 idTransaksi = idTransaksi,
-                                idBarang = existingItem.idBarang,
-                                namaBarang = existingItem.namaBarang,
-                                jumlah = qty
+                                idBarang = matchedItem.idBarang,
+                                namaBarang = matchedItem.namaBarang,
+                                jumlah = totalQty
                             )
                         )
                     } else {
-                        // Create item on-the-fly
+                        // Register item on-the-fly if missing from database
                         val currentItems = itemsWithStock.value
                         var maxIdNum = 0
                         currentItems.forEach { item ->
@@ -1673,8 +1726,8 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
 
                         val newItem = ItemEntity(
                             idBarang = newId,
-                            namaBarang = inputNameOrId,
-                            stokAwal = qty // Initial physical stock equal to amount borrowed so availability balances to 0
+                            namaBarang = displayName,
+                            stokAwal = totalQty // Physical stock created equal to borrowed amount
                         )
                         itemsToRegister.add(newItem)
 
@@ -1682,16 +1735,17 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                             LoanItemEntity(
                                 idTransaksi = idTransaksi,
                                 idBarang = newId,
-                                namaBarang = inputNameOrId,
-                                jumlah = qty
+                                namaBarang = displayName,
+                                jumlah = totalQty
                             )
                         )
                     }
                 }
 
-                // Register missing items
+                // Register missing items in Room
                 itemsToRegister.forEach { item ->
                     db.inventoryDao().insertItem(item)
+                    firebaseService.saveItemToFirestore(item)
                 }
 
                 val transaction = LoanTransactionEntity(
@@ -1713,19 +1767,10 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 if (success) {
                     _lastSyncTime.value = settingsRepository.getLastSyncTime()
                     
-                    // Write atomically to Firestore (Transaction / Batch Write)
+                    // Write atomically to Firestore (Transaction & Loan Items WITHOUT modifying master physical stock)
                     val dbFirestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                     dbFirestore.runTransaction { transactionAccessor ->
-                        // 1. Prepare item updates
-                        val itemUpdates = loanItems.map { loanItem ->
-                            val itemRef = dbFirestore.collection("items").document(loanItem.idBarang)
-                            val itemDoc = transactionAccessor.get(itemRef)
-                            val currentStokAwal = itemDoc.getLong("stokAwal") ?: 0L
-                            val newStokAwal = (currentStokAwal - loanItem.jumlah).coerceAtLeast(0L)
-                            Triple(itemRef, newStokAwal, loanItem)
-                        }
-
-                        // 2. Write transaction to 'transactions' collection
+                        // 1. Write transaction to 'transactions' collection
                         val txRef = dbFirestore.collection("transactions").document(idTransaksi)
                         val txData = hashMapOf<String, Any>(
                             "idTransaksi" to transaction.idTransaksi,
@@ -1744,7 +1789,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                         transaction.detailTujuan?.let { txData["detailTujuan"] = it }
                         transactionAccessor.set(txRef, txData)
 
-                        // 3. Write loan items to 'loan_items' collection
+                        // 2. Write loan items to 'loan_items' collection
                         loanItems.forEach { loanItem ->
                             val docId = "${loanItem.idTransaksi}_${loanItem.idBarang}"
                             val itemData = hashMapOf<String, Any>(
@@ -1757,11 +1802,6 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                             )
                             val loanItemRef = dbFirestore.collection("loan_items").document(docId)
                             transactionAccessor.set(loanItemRef, itemData)
-                        }
-
-                        // 4. Update 'stokAwal' (the physical/available stock representation) on Firestore
-                        itemUpdates.forEach { (itemRef, newStok, _) ->
-                            transactionAccessor.update(itemRef, "stokAwal", newStok)
                         }
                     }.addOnSuccessListener {
                         android.util.Log.d("InventoryViewModel", "Firestore atomic submitLoan success.")
@@ -1814,21 +1854,11 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 if (success) {
                     _lastSyncTime.value = settingsRepository.getLastSyncTime()
                     val updatedTx = db.inventoryDao().getTransactionById(idTransaksi)
-                    val loanItems = db.inventoryDao().getItemsForTransaction(idTransaksi)
                     
                     if (updatedTx != null) {
                         val dbFirestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                         dbFirestore.runTransaction { transactionAccessor ->
-                            // 1. Prepare item increments
-                            val itemUpdates = loanItems.map { loanItem ->
-                                val itemRef = dbFirestore.collection("items").document(loanItem.idBarang)
-                                val itemDoc = transactionAccessor.get(itemRef)
-                                val currentStokAwal = itemDoc.getLong("stokAwal") ?: 0L
-                                val newStokAwal = currentStokAwal + loanItem.jumlah
-                                Pair(itemRef, newStokAwal)
-                            }
-
-                            // 2. Update transaction
+                            // Update transaction status to 'Kembali' in Firestore
                             val txRef = dbFirestore.collection("transactions").document(idTransaksi)
                             val txData = hashMapOf<String, Any>(
                                 "status" to "Kembali",
@@ -1839,11 +1869,6 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                             )
                             updatedTx.keteranganKerusakan?.let { txData["keteranganKerusakan"] = it }
                             transactionAccessor.update(txRef, txData)
-
-                            // 3. Increment stocks back
-                            itemUpdates.forEach { (itemRef, newStok) ->
-                                transactionAccessor.update(itemRef, "stokAwal", newStok)
-                            }
                         }.addOnSuccessListener {
                             android.util.Log.d("InventoryViewModel", "Firestore atomic returnLoan success.")
                         }.addOnFailureListener { e ->
