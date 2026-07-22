@@ -167,6 +167,7 @@ fun DashboardScreen(
     val items by viewModel.itemsWithStock.collectAsState()
     val activeTransactions by viewModel.activeTransactions.collectAsState()
     val userRole by viewModel.userRole.collectAsState()
+    val studentPermissions by viewModel.studentPermissions.collectAsState()
 
     val instansiName by viewModel.instansiName.collectAsState()
     val instansiLogoPath by viewModel.instansiLogoPath.collectAsState()
@@ -609,20 +610,22 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-                    DrawerMenuItem(
-                        label = "Scan QR Code",
-                        icon = Icons.Default.QrCode,
-                        iconColor = Color(0xFFDB2777),
-                        bgColor = Color(0xFFFDF2F8),
-                        borderColor = Color(0xFFFCE7F3),
-                        onClick = {
-                            scope.launch {
-                                drawerState.close()
-                                onNavigateToMenu("Scan QR")
+                    if (userRole.contains("admin", ignoreCase = true) || (studentPermissions["scan_qr"] == true) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] == true)) {
+                        DrawerMenuItem(
+                            label = "Scan QR Code",
+                            icon = Icons.Default.QrCode,
+                            iconColor = Color(0xFFDB2777),
+                            bgColor = Color(0xFFFDF2F8),
+                            borderColor = Color(0xFFFCE7F3),
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    onNavigateToMenu("Scan QR")
+                                }
                             }
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     if (userRole == "admin") {
                         DrawerMenuItem(
                             label = "Backup & Restore",
@@ -954,12 +957,10 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        val studentPermissions by viewModel.studentPermissions.collectAsState()
-
         fun isMenuAllowedForSiswa(route: String): Boolean {
-            if (userRole == "admin") return true
+            if (userRole.contains("admin", ignoreCase = true)) return true
             if (route == "Scan QR") {
-                return (studentPermissions["scan_qr"] != false) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] != false)
+                return (studentPermissions["scan_qr"] == true) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] == true)
             }
             val permKey = when (route) {
                 "Alat" -> "alat"
@@ -977,7 +978,7 @@ fun DashboardScreen(
                 "Laporan" -> "laporan"
                 else -> true
             }
-            return studentPermissions[permKey] != false
+            return studentPermissions[permKey] == true
         }
 
         val operasionalMenus = remember(userRole, studentPermissions) {

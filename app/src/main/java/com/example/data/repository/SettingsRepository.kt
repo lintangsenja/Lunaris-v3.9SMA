@@ -275,48 +275,90 @@ class SettingsRepository(private val context: Context) {
             "peminjaman" to false,
             "peminjaman_form" to false,
             "peminjaman_riwayat" to false,
+            "peminjaman_print" to false,
+
             "pengembalian" to false,
             "pengembalian_normal" to false,
             "pengembalian_parsial" to false,
+            "pengembalian_print" to false,
+
             "qr_group" to false,
             "scan_qr" to false,
             "generate_qr" to false,
+
             "log_transaksi" to false,
             "log_transaksi_view" to false,
             "log_transaksi_export" to false,
+            "log_sirkulasi" to false,
+            "log_bahan_habis" to false,
+            "log_stok" to false,
+            "log_pemeliharaan" to false,
+            "log_aktivitas" to false,
+            "log_export_excel" to false,
+            "log_print_pdf" to false,
 
             "alat" to false,
             "alat_view" to false,
             "alat_detail" to false,
+            "alat_import" to false,
+            "alat_export" to false,
+            "alat_print" to false,
+
             "kondisi_alat" to false,
+            "kondisi_alat_catat" to false,
             "kondisi_alat_view" to false,
             "kondisi_alat_report" to false,
+            "kondisi_alat_print" to false,
+
             "alat_rusak" to false,
             "alat_rusak_submit" to false,
             "alat_rusak_view" to false,
+            "alat_rusak_print" to false,
+
             "pemeliharaan" to false,
+            "pemeliharaan_tambah" to false,
             "pemeliharaan_view" to false,
             "pemeliharaan_history" to false,
+            "pemeliharaan_print" to false,
 
             "bahan" to false,
             "bahan_view" to false,
             "bahan_detail" to false,
+            "bahan_import" to false,
+            "bahan_export" to false,
+            "bahan_print" to false,
+
             "pemakaian_bahan" to false,
             "pemakaian_bahan_form" to false,
             "pemakaian_bahan_log" to false,
+
             "bahan_afkir" to false,
+            "bahan_afkir_submit" to false,
             "bahan_afkir_view" to false,
             "bahan_afkir_report" to false,
+            "bahan_afkir_print" to false,
 
             "master_data" to false,
             "master_data_view" to false,
             "master_data_manage" to false,
+
             "stok_opname" to false,
             "stok_opname_audit" to false,
             "stok_opname_reconcile" to false,
+
             "laporan" to false,
             "laporan_view" to false,
-            "laporan_export" to false
+            "laporan_export" to false,
+            "laporan_ringkasan" to false,
+            "laporan_alat" to false,
+            "laporan_bahan" to false,
+            "laporan_afkir" to false,
+            "laporan_peminjaman" to false,
+            "laporan_pengembalian" to false,
+            "laporan_alat_rusak" to false,
+            "laporan_pemeliharaan" to false,
+            "laporan_export_excel" to false,
+            "laporan_print_pdf" to false
         )
         val map = mutableMapOf<String, Boolean>()
         defaults.forEach { (key, defaultVal) ->

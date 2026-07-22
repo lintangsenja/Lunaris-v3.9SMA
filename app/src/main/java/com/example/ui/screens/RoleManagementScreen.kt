@@ -81,336 +81,221 @@ fun RoleManagementScreen(
         listOf(
             PermissionGroupData(
                 groupTitle = "1. Sirkulasi & Peminjaman",
-                groupSubtitle = "Fitur transaksi keluar masuk, QR code, dan riwayat sirkulasi",
+                groupSubtitle = "Fitur transaksi keluar masuk, QR code, dan log sirkulasi",
                 groupIcon = Icons.Default.CloudSync,
                 items = listOf(
                     PermissionParentItemData(
                         parentKey = "peminjaman",
-                        title = "Peminjaman Alat",
-                        description = "Menu utama untuk pengajuan dan peminjaman alat",
+                        title = "Menu Peminjaman Alat",
+                        description = "Pengajuan & riwayat transaksi peminjaman alat",
                         icon = Icons.Default.Assignment,
                         iconBgColor = Color(0xFFD1FAE5),
                         iconColor = Color(0xFF059669),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "peminjaman_form",
-                                title = "Form Ajukan Peminjaman",
-                                description = "Izinkan siswa mengisi form transaksi peminjaman barang",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "peminjaman_riwayat",
-                                title = "Riwayat & Status Peminjaman",
-                                description = "Izinkan siswa melihat daftar transaksi peminjaman aktif/selesai",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("peminjaman_form", "Form Ajukan Peminjaman", "Mengisi formulir pengajuan peminjaman alat", false),
+                            PermissionSubItemData("peminjaman_riwayat", "Riwayat Peminjaman", "Melihat riwayat & status peminjaman aktif/selesai", false),
+                            PermissionSubItemData("peminjaman_print", "Print / Cetak Bukti", "Mencetak / mengunduh bukti tanda terima peminjaman", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "pengembalian",
-                        title = "Pengembalian Alat",
-                        description = "Menu utama untuk proses pengembalian alat terpinjam",
+                        title = "Menu Pengembalian Alat",
+                        description = "Pengembalian barang terpinjam & pelaporan kondisi",
                         icon = Icons.Default.AssignmentReturn,
                         iconBgColor = Color(0xFFE0E7FF),
                         iconColor = Color(0xFF4F46E5),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "pengembalian_normal",
-                                title = "Pengembalian Kondisi Baik",
-                                description = "Proses pengembalian fisik barang dalam keadaan normal",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "pengembalian_parsial",
-                                title = "Pengembalian Rusak / Parsial",
-                                description = "Opsi pelaporan barang rusak/kurang saat pengembalian",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("pengembalian_normal", "Pengembalian Normal", "Proses pengembalian alat dalam kondisi baik", false),
+                            PermissionSubItemData("pengembalian_parsial", "Pengembalian Parsial / Rusak", "Proses pengembalian barang rusak / bertahap", false),
+                            PermissionSubItemData("pengembalian_print", "Print / Cetak Bukti", "Mencetak bukti pengembalian alat", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "qr_group",
                         title = "Grup QR Code",
-                        description = "Pemindaian scanner dan pembuat kode QR barang",
+                        description = "Pemindaian scanner & pembuat kode QR barang",
                         icon = Icons.Default.QrCode,
                         iconBgColor = Color(0xFFFCE7F3),
                         iconColor = Color(0xFFDB2777),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "scan_qr",
-                                title = "Pindai / Scan QR Code",
-                                description = "Memindai QR barang untuk pencarian & transaksi cepat",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "generate_qr",
-                                title = "Buat / Generate QR Code",
-                                description = "Membuat dan mencetak label QR barang baru/tambahan",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("scan_qr", "Pindai / Scan QR Code", "Memindai QR barang untuk pencarian & transaksi cepat", false),
+                            PermissionSubItemData("generate_qr", "Buat / Generate QR Code", "Membuat dan mencetak label QR barang baru", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "log_transaksi",
-                        title = "Log Transaksi",
-                        description = "Catatan rekam jejak aktivitas sirkulasi barang",
+                        title = "Menu Log Transaksi",
+                        description = "Catatan rekam jejak & audit seluruh aktivitas sirkulasi",
                         icon = Icons.Default.CloudSync,
                         iconBgColor = Color(0xFFCCFBF1),
                         iconColor = Color(0xFF0D9488),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "log_transaksi_view",
-                                title = "Melihat Log Terpadu",
-                                description = "Membuka riwayat log aktivitas peminjaman & pengembalian",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "log_transaksi_export",
-                                title = "Export / Cetak Riwayat Log",
-                                description = "Mengunduh atau mencetak berkas log sirkulasi",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("log_sirkulasi", "Sirkulasi Alat", "Catatan transaksi peminjaman & pengembalian alat", false),
+                            PermissionSubItemData("log_bahan_habis", "Bahan Habis", "Catatan transaksi pemakaian bahan habis pakai", false),
+                            PermissionSubItemData("log_stok", "Manajemen Stok", "Catatan perubahan & penyesuaian stok", false),
+                            PermissionSubItemData("log_pemeliharaan", "Pemeliharaan", "Catatan jadwal & tindakan pemeliharaan", false),
+                            PermissionSubItemData("log_aktivitas", "Aktivitas Sistem", "Log audit aktivitas & pengaksesan sistem", false),
+                            PermissionSubItemData("log_export_excel", "Export Laporan Excel", "Ekspor data log transaksi ke format Excel (.xlsx)", false),
+                            PermissionSubItemData("log_print_pdf", "Cetak / PDF Report", "Mencetak laporan log transaksi ke format PDF", false)
                         )
                     )
                 )
             ),
             PermissionGroupData(
                 groupTitle = "2. Inventaris Aset & Alat",
-                groupSubtitle = "Katalog alat, status kondisi kelayakan, dan pemeliharaan",
+                groupSubtitle = "Katalog alat, status kondisi, laporan kerusakan, & pemeliharaan",
                 groupIcon = Icons.Default.Build,
                 items = listOf(
                     PermissionParentItemData(
                         parentKey = "alat",
-                        title = "Daftar Alat",
-                        description = "Katalog aset peralatan lab dan gudang sarpras",
+                        title = "Menu Alat",
+                        description = "Katalog inventaris alat, spesifikasi, import/export data",
                         icon = Icons.Default.Build,
                         iconBgColor = Color(0xFFF3E8FF),
                         iconColor = Color(0xFF7C3AED),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "alat_view",
-                                title = "Katalog & Ketersediaan Alat",
-                                description = "Melihat daftar barang, stok tersedia, dan lokasi alat",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "alat_detail",
-                                title = "Cari & Detail Spesifikasi Alat",
-                                description = "Pencarian lanjutan dan detail teknis/merk alat",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("alat_view", "Katalog Alat", "Melihat katalog & ketersediaan stok alat", false),
+                            PermissionSubItemData("alat_detail", "Detail Spesifikasi", "Melihat detail spesifikasi teknis alat", false),
+                            PermissionSubItemData("alat_import", "Import Data Excel/CSV", "Mengimpor data alat dari file Excel/CSV", false),
+                            PermissionSubItemData("alat_export", "Export Data", "Mengekspor daftar alat ke berkas Excel", false),
+                            PermissionSubItemData("alat_print", "Cetak / PDF", "Mencetak katalog daftar alat ke format PDF", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "kondisi_alat",
-                        title = "Kondisi Alat",
-                        description = "Informasi kondisi fisik dan tingkat kelayakan alat",
+                        title = "Menu Kondisi Alat",
+                        description = "Inspeksi kondisi fisik & status kelayakan alat",
                         icon = Icons.Default.Info,
                         iconBgColor = Color(0xFFFFE4E6),
                         iconColor = Color(0xFFE11D48),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "kondisi_alat_view",
-                                title = "Cek Status Kelayakan Alat",
-                                description = "Melihat rekap status alat baik, rusak, atau perawatan",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "kondisi_alat_report",
-                                title = "Lihat Rekap Fisik Alat",
-                                description = "Rincian catatan kondisi fisik setiap barang",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("kondisi_alat_catat", "Pencatatan Kondisi", "Mencatat hasil pemeriksaan kondisi alat", false),
+                            PermissionSubItemData("kondisi_alat_view", "Riwayat Kondisi", "Melihat riwayat status kondisi kelayakan alat", false),
+                            PermissionSubItemData("kondisi_alat_print", "Print / Cetak Bukti", "Mencetak berita acara pemeriksaan kondisi alat", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "alat_rusak",
-                        title = "Lapor Alat Rusak",
-                        description = "Fitur pelaporan kendala dan kerusakan fisik alat",
+                        title = "Alat Rusak",
+                        description = "Pengaduan & rekap data kerusakan alat",
                         icon = Icons.Default.Warning,
                         iconBgColor = Color(0xFFFFECEF),
                         iconColor = Color(0xFFEF4444),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "alat_rusak_submit",
-                                title = "Form Lapor Kerusakan Alat",
-                                description = "Mengirimkan formulir pengaduan kerusakan alat",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "alat_rusak_view",
-                                title = "Melihat Daftar Alat Rusak",
-                                description = "Daftar daftar alat yang sedang dalam status rusak",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("alat_rusak_submit", "Tambah Alat Rusak", "Melaporkan / mencatat kejadian alat rusak", false),
+                            PermissionSubItemData("alat_rusak_view", "Riwayat Alat Rusak", "Melihat daftar & riwayat alat yang rusak", false),
+                            PermissionSubItemData("alat_rusak_print", "Print / Cetak Bukti", "Mencetak berita acara kerusakan alat", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "pemeliharaan",
-                        title = "Pemeliharaan Alat",
-                        description = "Jadwal servis berkala dan perawatan aset",
+                        title = "Menu Pemeliharaan",
+                        description = "Penjadwalan servis berkala & perawatan aset",
                         icon = Icons.Default.Build,
                         iconBgColor = Color(0xFFEFF6FF),
                         iconColor = Color(0xFF2563EB),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "pemeliharaan_view",
-                                title = "Jadwal & Histori Perawatan",
-                                description = "Melihat agenda perawatan rutin peralatan",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "pemeliharaan_history",
-                                title = "Catatan Servis Perbaikan",
-                                description = "Melihat riwayat perbaikan dan peremajaan alat",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("pemeliharaan_tambah", "Tambah Pemeliharaan", "Membuat agenda pemeliharaan / perbaikan alat", false),
+                            PermissionSubItemData("pemeliharaan_view", "Riwayat Pemeliharaan", "Melihat jadwal & histori perawatan alat", false),
+                            PermissionSubItemData("pemeliharaan_print", "Print / Cetak Bukti", "Mencetak bukti / laporan pemeliharaan alat", false)
                         )
                     )
                 )
             ),
             PermissionGroupData(
                 groupTitle = "3. Bahan Habis Pakai (BHP)",
-                groupSubtitle = "Katalog bahan, log pemakaian praktikum, dan afkir",
+                groupSubtitle = "Katalog bahan, log pemakaian praktikum, & bahan afkir",
                 groupIcon = Icons.Default.Science,
                 items = listOf(
                     PermissionParentItemData(
                         parentKey = "bahan",
-                        title = "Daftar Bahan",
-                        description = "Stok bahan praktikum, konsumabel, dan logistik",
+                        title = "Menu Bahan",
+                        description = "Stok bahan habis pakai praktikum & logistik",
                         icon = Icons.Default.Science,
                         iconBgColor = Color(0xFFE0F2FE),
                         iconColor = Color(0xFF0284C7),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "bahan_view",
-                                title = "Katalog Stok Bahan",
-                                description = "Melihat stok terkini bahan habis pakai",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "bahan_detail",
-                                title = "Detail Lokasi & Masa Simpan",
-                                description = "Melihat informasi ruang simpan dan tanggal kedaluwarsa",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("bahan_view", "Katalog Bahan", "Melihat stok & daftar bahan habis pakai", false),
+                            PermissionSubItemData("bahan_detail", "Detail Spesifikasi", "Melihat rincian lokasi simpan & spesifikasi bahan", false),
+                            PermissionSubItemData("bahan_import", "Import Data Excel/CSV", "Mengimpor daftar bahan dari file Excel/CSV", false),
+                            PermissionSubItemData("bahan_export", "Export Data", "Mengekspor data stok bahan ke format Excel", false),
+                            PermissionSubItemData("bahan_print", "Cetak / PDF", "Mencetak daftar bahan habis pakai ke format PDF", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "pemakaian_bahan",
-                        title = "Pemakaian Bahan",
-                        description = "Pencatatan konsumsi bahan praktikum siswa",
+                        title = "Menu Pemakaian Bahan",
+                        description = "Pencatatan konsumsi bahan praktikum",
                         icon = Icons.Default.ShoppingCart,
                         iconBgColor = Color(0xFFFCE7F3),
                         iconColor = Color(0xFFDB2777),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "pemakaian_bahan_form",
-                                title = "Form Catat Pemakaian Bahan",
-                                description = "Input penggunaan kuantitas bahan praktikum",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "pemakaian_bahan_log",
-                                title = "Log Pemakaian Praktikum",
-                                description = "Melihat riwayat konsumsi bahan oleh siswa/kelas",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("pemakaian_bahan_form", "Form Pemakaian", "Mengisi form pengambilan/pemakaian bahan", false),
+                            PermissionSubItemData("pemakaian_bahan_log", "Riwayat Pemakaian", "Melihat log konsumsi pemakaian bahan praktikum", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "bahan_afkir",
-                        title = "Bahan Afkir / Rusak",
-                        description = "Pengelolaan bahan rusak atau kadaluwarsa",
+                        title = "Menu Bahan Afkir",
+                        description = "Pengelolaan bahan rusak / kadaluwarsa",
                         icon = Icons.Default.DeleteSweep,
                         iconBgColor = Color(0xFFFFEDD5),
                         iconColor = Color(0xFFEA580C),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "bahan_afkir_view",
-                                title = "Lihat Daftar Bahan Afkir",
-                                description = "Melihat list bahan yang dinyatakan tidak layak pakai",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "bahan_afkir_report",
-                                title = "Laporan Kedaluwarsa Bahan",
-                                description = "Melihat berkas berita acara penghapusan bahan",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("bahan_afkir_submit", "Catat Afkir", "Pencatatan bahan kedaluwarsa / rusak (afkir)", false),
+                            PermissionSubItemData("bahan_afkir_view", "Riwayat Afkir", "Melihat riwayat & daftar bahan afkir", false),
+                            PermissionSubItemData("bahan_afkir_print", "Print / Cetak Bukti", "Mencetak berita acara pemusnahan/afkir bahan", false)
                         )
                     )
                 )
             ),
             PermissionGroupData(
-                groupTitle = "4. Master Data & Laporan",
-                groupSubtitle = "Pengelolaan data induk, stok opname, dan laporan terpadu",
+                groupTitle = "4. Master Data, Stok Opname & Laporan",
+                groupSubtitle = "Pengelolaan data induk, audit fisik, & rekapan laporan",
                 groupIcon = Icons.Default.Storage,
                 items = listOf(
                     PermissionParentItemData(
                         parentKey = "master_data",
                         title = "Master Data",
-                        description = "Data induk barang, kategori, dan lokasi ruang",
+                        description = "Data induk barang, kategori, ruang, & sumber dana",
                         icon = Icons.Default.Storage,
                         iconBgColor = Color(0xFFD1FAE5),
                         iconColor = Color(0xFF10B981),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "master_data_view",
-                                title = "Lihat Induk Barang & Lokasi",
-                                description = "Melihat struktur master data barang dan daftar ruang",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "master_data_manage",
-                                title = "Pengelolaan Data & Kategori",
-                                description = "Pengaturan kategori barang dan parameter sarpras",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("master_data_view", "Lihat Induk Barang & Lokasi", "Melihat struktur master data barang & daftar ruang", false),
+                            PermissionSubItemData("master_data_manage", "Pengelolaan Data & Kategori", "Mengelola kategori, ruang, & parameter sarpras", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "stok_opname",
                         title = "Stok Opname",
-                        description = "Audit fisik dan penyesuaian ketersediaan barang",
+                        description = "Audit fisik & penyesuaian ketersediaan stok gudang",
                         icon = Icons.Default.Inventory,
                         iconBgColor = Color(0xFFEFF6FF),
                         iconColor = Color(0xFF3B82F6),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "stok_opname_audit",
-                                title = "Audit Physical Count Gudang",
-                                description = "Opsi verifikasi hitung ulang stok di lapangan",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "stok_opname_reconcile",
-                                title = "Penyesuaian Fisik Stok",
-                                description = "Fitur penyesuaian angka stok sistem vs fisik",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("stok_opname_audit", "Audit Physical Count Gudang", "Memasukkan data hasil hitung fisik di lapangan", false),
+                            PermissionSubItemData("stok_opname_reconcile", "Penyesuaian Fisik Stok", "Menyesuaikan angka stok sistem dengan fisik", false)
                         )
                     ),
                     PermissionParentItemData(
                         parentKey = "laporan",
-                        title = "Laporan & Rekapan",
-                        description = "Pratinjau dan unduh berkas laporan bulanan",
+                        title = "Menu Laporan",
+                        description = "Ringkasan & laporan terpadu seluruh modul sarpras",
                         icon = Icons.Default.Assessment,
                         iconBgColor = Color(0xFFECFEFF),
                         iconColor = Color(0xFF06B6D4),
                         subItems = listOf(
-                            PermissionSubItemData(
-                                key = "laporan_view",
-                                title = "Pratinjau Laporan Sirkulasi",
-                                description = "Melihat grafik dan ringkasan aktivitas sarpras",
-                                defaultVal = false
-                            ),
-                            PermissionSubItemData(
-                                key = "laporan_export",
-                                title = "Cetak & Export PDF / Excel",
-                                description = "Mengunduh file laporan dalam format PDF atau Excel",
-                                defaultVal = false
-                            )
+                            PermissionSubItemData("laporan_ringkasan", "Ringkasan", "Melihat eksekutif summary & grafik laporan", false),
+                            PermissionSubItemData("laporan_alat", "Alat", "Laporan rekapitulasi data alat", false),
+                            PermissionSubItemData("laporan_bahan", "Bahan", "Laporan rekapitulasi data bahan habis pakai", false),
+                            PermissionSubItemData("laporan_afkir", "Afkir", "Laporan rekapitulasi bahan afkir", false),
+                            PermissionSubItemData("laporan_peminjaman", "Peminjaman", "Laporan rekapitulasi peminjaman alat", false),
+                            PermissionSubItemData("laporan_pengembalian", "Pengembalian", "Laporan rekapitulasi pengembalian alat", false),
+                            PermissionSubItemData("laporan_alat_rusak", "Alat Rusak", "Laporan rekapitulasi kerusakan alat", false),
+                            PermissionSubItemData("laporan_pemeliharaan", "Pemeliharaan", "Laporan rekapitulasi pemeliharaan alat", false),
+                            PermissionSubItemData("laporan_export_excel", "Export Laporan Excel", "Mengekspor berkas laporan ke format Excel", false),
+                            PermissionSubItemData("laporan_print_pdf", "Cetak / PDF Report", "Mencetak berkas laporan ke format PDF", false)
                         )
                     )
                 )
