@@ -2012,7 +2012,18 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     suspend fun getItemsForTransaction(idTransaksi: String): List<LoanItemEntity> {
-        return repository.getItemsForTransaction(idTransaksi)
+        val rawItems = repository.getItemsForTransaction(idTransaksi)
+        val mergedMap = LinkedHashMap<String, LoanItemEntity>()
+        for (item in rawItems) {
+            val key = if (item.idBarang.isNotBlank()) item.idBarang else item.namaBarang.trim().lowercase()
+            if (mergedMap.containsKey(key)) {
+                val existing = mergedMap[key]!!
+                mergedMap[key] = existing.copy(jumlah = existing.jumlah + item.jumlah)
+            } else {
+                mergedMap[key] = item
+            }
+        }
+        return mergedMap.values.toList()
     }
 
     fun clearAllLocalData(onCompleted: () -> Unit) {

@@ -96,6 +96,20 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+private fun consolidateLoanItems(items: List<LoanItemEntity>): List<LoanItemEntity> {
+    val map = LinkedHashMap<String, LoanItemEntity>()
+    for (item in items) {
+        val key = if (item.idBarang.isNotBlank()) item.idBarang else item.namaBarang.trim().lowercase()
+        if (map.containsKey(key)) {
+            val existing = map[key]!!
+            map[key] = existing.copy(jumlah = existing.jumlah + item.jumlah)
+        } else {
+            map[key] = item
+        }
+    }
+    return map.values.toList()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PengembalianScreen(
@@ -178,15 +192,16 @@ fun PengembalianScreen(
     LaunchedEffect(activeTxState) {
         val map = mutableMapOf<String, List<LoanItemEntity>>()
         activeTxState.forEach { tx ->
-            map[tx.idTransaksi] = viewModel.getItemsForTransaction(tx.idTransaksi)
+            map[tx.idTransaksi] = consolidateLoanItems(viewModel.getItemsForTransaction(tx.idTransaksi))
         }
         activeTxItemsMap = map
     }
 
     LaunchedEffect(borrowedItemsList.value) {
-        val initialConditions = borrowedItemsList.value.associate { it.idBarang to "Baik / Normal" }
+        val consolidated = consolidateLoanItems(borrowedItemsList.value)
+        val initialConditions = consolidated.associate { it.idBarang to (itemConditionsMap[it.idBarang] ?: "Baik / Normal") }
         itemConditionsMap = initialConditions
-        val initialNotes = borrowedItemsList.value.associate { it.idBarang to "" }
+        val initialNotes = consolidated.associate { it.idBarang to (itemNotesMap[it.idBarang] ?: "") }
         itemNotesMap = initialNotes
     }
 
@@ -626,7 +641,8 @@ fun PengembalianScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        borrowedItemsList.value.forEach { item ->
+                        val consolidatedList = remember(borrowedItemsList.value) { consolidateLoanItems(borrowedItemsList.value) }
+                        consolidatedList.forEach { item ->
                             var itemKondisiExpanded by remember { mutableStateOf(false) }
                             val currentCondition = itemConditionsMap[item.idBarang] ?: "Baik / Normal"
                             val currentNote = itemNotesMap[item.idBarang] ?: ""
@@ -807,7 +823,7 @@ fun PengembalianScreen(
                     detailedNotes.append("Kategori: $kategoriPeminjam\n")
                     detailedNotes.append("Tujuan: ${selectedTransaction?.tujuanPeminjaman ?: "-"}\n")
                     detailedNotes.append("Rincian Kondisi Kembali:\n")
-                    borrowedItemsList.value.forEach { item ->
+                    consolidateLoanItems(borrowedItemsList.value).forEach { item ->
                         val cond = itemConditionsMap[item.idBarang] ?: "Baik / Normal"
                         val note = itemNotesMap[item.idBarang]?.trim() ?: ""
                         detailedNotes.append("- ${item.namaBarang}: $cond" + (if (note.isNotEmpty()) " (Catatan: $note)" else "") + "\n")

@@ -182,7 +182,18 @@ class InventoryRepository(
         inventoryDao.updateTransaction(updatedTransaction)
 
         // 1b. Process per-item conditions and update stock/damaged lists
-        val loanItems = inventoryDao.getItemsForTransaction(idTransaksi)
+        val rawLoanItems = inventoryDao.getItemsForTransaction(idTransaksi)
+        val loanItemsMap = LinkedHashMap<String, LoanItemEntity>()
+        for (item in rawLoanItems) {
+            val key = if (item.idBarang.isNotBlank()) item.idBarang else item.namaBarang.trim().lowercase()
+            if (loanItemsMap.containsKey(key)) {
+                val existing = loanItemsMap[key]!!
+                loanItemsMap[key] = existing.copy(jumlah = existing.jumlah + item.jumlah)
+            } else {
+                loanItemsMap[key] = item
+            }
+        }
+        val loanItems = loanItemsMap.values.toList()
         val damagedItems = mutableListOf<com.example.data.entity.DamagedItemEntity>()
 
         loanItems.forEach { item ->
