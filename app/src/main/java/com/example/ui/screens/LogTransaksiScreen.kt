@@ -97,6 +97,11 @@ fun LogTransaksiScreen(
                         val whatsapp = doc.getString("whatsappNumber")
                         val tujuan = doc.getString("tujuanPeminjaman")
                         val detail = doc.getString("detailTujuan")
+                        val tanggalKembaliVal = doc.getString("tanggalKembali")
+                        val waktuKembaliVal = doc.getString("waktuKembali")
+                        val kondisiKembaliVal = doc.getString("kondisiKembali")
+                        val petugasKembaliVal = doc.getString("petugasKembali")
+                        val keteranganKerusakanVal = doc.getString("keteranganKerusakan")
                         
                         list.add(
                             LoanTransactionEntity(
@@ -112,7 +117,12 @@ fun LogTransaksiScreen(
                                 isDemo = isDemoVal,
                                 whatsappNumber = whatsapp,
                                 tujuanPeminjaman = tujuan,
-                                detailTujuan = detail
+                                detailTujuan = detail,
+                                tanggalKembali = tanggalKembaliVal,
+                                waktuKembali = waktuKembaliVal,
+                                kondisiKembali = kondisiKembaliVal,
+                                petugasKembali = petugasKembaliVal,
+                                keteranganKerusakan = keteranganKerusakanVal
                             )
                         )
                     }
@@ -126,20 +136,39 @@ fun LogTransaksiScreen(
 
     val transactions = remember(recentFirestoreTransactions, localTransactions) {
         val list = mutableListOf<LoanTransactionEntity>()
+        val localMap = localTransactions.associateBy { it.idTransaksi }
         
-        // 1. Add real-time loan transactions from Firestore
-        list.addAll(recentFirestoreTransactions)
+        // 1. Process real-time loan transactions from Firestore merged with local DB
+        recentFirestoreTransactions.forEach { firestoreTx ->
+            val localTx = localMap[firestoreTx.idTransaksi]
+            if (localTx != null) {
+                val mergedStatus = if (localTx.status == "Kembali" || firestoreTx.status == "Kembali") "Kembali" else firestoreTx.status
+                val mergedTglKmb = firestoreTx.tanggalKembali.takeIf { !it.isNullOrBlank() } ?: localTx.tanggalKembali
+                val mergedWktKmb = firestoreTx.waktuKembali.takeIf { !it.isNullOrBlank() } ?: localTx.waktuKembali
+                val mergedKndKmb = firestoreTx.kondisiKembali.takeIf { !it.isNullOrBlank() } ?: localTx.kondisiKembali
+                val mergedPtgKmb = firestoreTx.petugasKembali.takeIf { !it.isNullOrBlank() } ?: localTx.petugasKembali
+                val mergedKet = firestoreTx.keteranganKerusakan.takeIf { !it.isNullOrBlank() } ?: localTx.keteranganKerusakan
+
+                list.add(
+                    firestoreTx.copy(
+                        status = mergedStatus,
+                        tanggalKembali = mergedTglKmb,
+                        waktuKembali = mergedWktKmb,
+                        kondisiKembali = mergedKndKmb,
+                        petugasKembali = mergedPtgKmb,
+                        keteranganKerusakan = mergedKet
+                    )
+                )
+            } else {
+                list.add(firestoreTx)
+            }
+        }
         
-        // 2. Add other local transaction activities (not sirkulasi)
-        localTransactions.forEach { tx ->
-            val isSirkulasi = !tx.idTransaksi.startsWith("TX-INP") && 
-                              !tx.idTransaksi.startsWith("TX-AFK") && 
-                              !tx.idTransaksi.startsWith("TX-DMG") && 
-                              !tx.idTransaksi.startsWith("TX-OPN") && 
-                              !tx.idTransaksi.startsWith("TX-RUM") && 
-                              !tx.idTransaksi.startsWith("TX-SYN")
-            if (!isSirkulasi) {
-                list.add(tx)
+        // 2. Add local transactions that are not in Firestore list
+        val firestoreIds = recentFirestoreTransactions.map { it.idTransaksi }.toSet()
+        localTransactions.forEach { localTx ->
+            if (!firestoreIds.contains(localTx.idTransaksi)) {
+                list.add(localTx)
             }
         }
         
@@ -863,25 +892,39 @@ fun RenderSirkulasiList(
                                     color = if (tx.status == "Kembali") Color(0xFF115E59) else Color(0xFFD97706)
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
-                                if (tx.status == "Kembali" && !tx.tanggalKembali.isNullOrBlank()) {
+                                if (tx.status == "Kembali") {
+                                    val tglKmb = tx.tanggalKembali.takeIf { !it.isNullOrBlank() } ?: tx.tanggal
+                                    val wktKmb = tx.waktuKembali.takeIf { !it.isNullOrBlank() } ?: tx.waktu
+                                    val kndKmb = tx.kondisiKembali.takeIf { !it.isNullOrBlank() } ?: "Normal / Baik"
+                                    val ptgKmb = tx.petugasKembali.takeIf { !it.isNullOrBlank() } ?: tx.namaPetugas
+
                                     Text(
-                                        text = "Tanggal: ${tx.tanggalKembali} • Waktu: ${tx.waktuKembali ?: "-"} WIB",
+                                        text = "Tanggal: $tglKmb • Waktu: $wktKmb WIB",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Kondisi Kembali: ${tx.kondisiKembali ?: "Baik / Normal"}",
+                                        text = "Kondisi Kembali: $kndKmb",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Petugas Penerima: ${tx.petugasKembali ?: "-"}",
+                                        text = "Petugas Penerima: $ptgKmb",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (!tx.keteranganKerusakan.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Rincian / Catatan Pengembalian:\n${tx.keteranganKerusakan}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 } else {
                                     Text(
                                         text = "Status: Belum Dikembalikan",
