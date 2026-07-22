@@ -145,6 +145,7 @@ interface InventoryDao {
         insertTransaction(transaction)
         deleteLoanItemsForTransaction(transaction.idTransaksi)
         insertLoanItems(items)
+        cleanupDuplicateLoanItems()
     }
 
     @Query("SELECT * FROM loan_transactions ORDER BY tanggal DESC, waktu DESC")

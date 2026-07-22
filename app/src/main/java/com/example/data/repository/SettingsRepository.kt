@@ -223,7 +223,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun isLoggedIn(): Boolean {
-        return prefs.getBoolean("is_logged_in", false)
+        return prefs.getBoolean("is_logged_in", true)
     }
 
     fun setLoggedIn(loggedIn: Boolean) {
@@ -231,7 +231,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun getLoggedInUser(): String {
-        return prefs.getString("logged_in_user", "") ?: ""
+        return prefs.getString("logged_in_user", "Admin") ?: "Admin"
     }
 
     fun setLoggedInUser(username: String) {
@@ -239,7 +239,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun getUserRole(): String {
-        return prefs.getString("user_role", "siswa") ?: "siswa"
+        return prefs.getString("user_role", "admin") ?: "admin"
     }
 
     fun setUserRole(role: String) {
