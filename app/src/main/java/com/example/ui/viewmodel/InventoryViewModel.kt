@@ -61,20 +61,23 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val dao = db.inventoryDao()
                 val count = dao.getAllUsers().first().size
+                val lintangUserEntity = UserEntity(
+                    username = "lintang",
+                    password = "lintanglunaris",
+                    role = "super_admin",
+                    fullName = "Lintang Senja"
+                )
                 if (count == 0) {
                     dao.insertUser(UserEntity("admin", "admin123", "super_admin", "Super Admin"))
-                    dao.insertUser(UserEntity("lintang", "lintanglunaris", "super_admin", "Lintang (Super Admin)"))
+                    dao.insertUser(lintangUserEntity)
                     dao.insertUser(UserEntity("siswa", "siswa19", "siswa", "Siswa Lunaris"))
                 } else {
                     val lintangUser = dao.getUserByUsername("lintang")
-                    if (lintangUser != null) {
-                        if (lintangUser.role != "super_admin") {
-                            dao.insertUser(lintangUser.copy(role = "super_admin", fullName = "Lintang (Super Admin)"))
-                        }
-                    } else {
-                        dao.insertUser(UserEntity("lintang", "lintanglunaris", "super_admin", "Lintang (Super Admin)"))
+                    if (lintangUser == null || lintangUser.role != "super_admin" || lintangUser.fullName != "Lintang Senja" || lintangUser.password != "lintanglunaris") {
+                        dao.insertUser(lintangUserEntity)
                     }
                 }
+                writeUserToFirestore("lintang", "super_admin", "Lintang Senja")
             } catch (e: Exception) {
                 Log.e("InventoryVM", "Error seeding default users", e)
             }
@@ -349,7 +352,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     createdAt = System.currentTimeMillis()
                 )
                 db.inventoryDao().insertUser(newUser)
-                writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa")
+                writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa", fullName)
                 onResult(true, "Pengguna '$username' berhasil ditambahkan!")
             } catch (e: Exception) {
                 Log.e("InventoryVM", "Error registering user", e)
@@ -365,7 +368,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
         if (usernameToDelete.equals("admin", ignoreCase = true) || usernameToDelete.equals("lintang", ignoreCase = true)) {
-            onResult(false, "Akun default Super Admin tidak dapat dihapus!")
+            onResult(false, "Akun default Super Admin Lintang Senja tidak dapat dihapus!")
             return
         }
 
@@ -380,12 +383,22 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun writeUserToFirestore(username: String, role: String) {
+    private fun writeUserToFirestore(username: String, role: String, fullName: String = "") {
         try {
             val dbFirestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val resolvedFullName = when {
+                fullName.isNotBlank() -> fullName
+                username.equals("lintang", ignoreCase = true) -> "Lintang Senja"
+                username.equals("admin", ignoreCase = true) -> "Super Admin"
+                else -> ""
+            }
             val userData = hashMapOf(
                 "username" to username,
                 "role" to role,
+                "fullName" to resolvedFullName,
+                "isSuperAdmin" to (role == "super_admin" || username.equals("lintang", ignoreCase = true)),
+                "isProtected" to (username.equals("admin", ignoreCase = true) || username.equals("lintang", ignoreCase = true)),
+                "isActive" to true,
                 "lastLogin" to System.currentTimeMillis()
             )
             dbFirestore.collection("users").document(username).set(userData)

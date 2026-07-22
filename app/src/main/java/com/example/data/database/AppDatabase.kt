@@ -203,6 +203,28 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 }
             }
+
+            // 3. Seed/ensure default Super Admin user (Lintang Senja)
+            seedInitialUsers(database)
+        }
+
+        private fun seedInitialUsers(database: SupportSQLiteDatabase) {
+            try {
+                database.execSQL(
+                    "INSERT OR REPLACE INTO `users` (`username`, `password`, `role`, `fullName`, `createdAt`) " +
+                    "VALUES ('lintang', 'lintanglunaris', 'super_admin', 'Lintang Senja', ${System.currentTimeMillis()})"
+                )
+                database.execSQL(
+                    "INSERT OR IGNORE INTO `users` (`username`, `password`, `role`, `fullName`, `createdAt`) " +
+                    "VALUES ('admin', 'admin123', 'super_admin', 'Super Admin', ${System.currentTimeMillis()})"
+                )
+                database.execSQL(
+                    "INSERT OR IGNORE INTO `users` (`username`, `password`, `role`, `fullName`, `createdAt`) " +
+                    "VALUES ('siswa', 'siswa19', 'siswa', 'Siswa Lunaris', ${System.currentTimeMillis()})"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "Error seeding initial default users in AppDatabase", e)
+            }
         }
 
         fun getDatabase(context: Context): AppDatabase {
@@ -221,6 +243,16 @@ abstract class AppDatabase : RoomDatabase() {
                     "gudang_sman_database"
                 )
                     .addMigrations(*migrations)
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            seedInitialUsers(db)
+                        }
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            seedInitialUsers(db)
+                        }
+                    })
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

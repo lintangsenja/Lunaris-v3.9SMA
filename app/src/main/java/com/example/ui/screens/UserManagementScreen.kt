@@ -552,8 +552,12 @@ fun UserCardItem(
                 }
             }
 
+            val isProtectedUser = user.username.equals("admin", ignoreCase = true) ||
+                    user.username.equals("lintang", ignoreCase = true) ||
+                    user.role == "super_admin"
+
             // Delete Action
-            if (!isActiveUser && !user.username.equals("admin", ignoreCase = true) && !user.username.equals("lintang", ignoreCase = true)) {
+            if (!isActiveUser && !isProtectedUser) {
                 IconButton(
                     onClick = onDeleteClick,
                     modifier = Modifier.testTag("btn_delete_user_${user.username}")
@@ -562,6 +566,20 @@ fun UserCardItem(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Hapus User",
                         tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else if (isProtectedUser && !isActiveUser) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF7C3AED).copy(alpha = 0.12f))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "Terproteksi",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF7C3AED)
                     )
                 }
             }
