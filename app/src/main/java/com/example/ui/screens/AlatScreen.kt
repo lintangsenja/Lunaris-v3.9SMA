@@ -208,7 +208,7 @@ fun AlatScreen(
     var sumberDanaInput by remember { mutableStateOf("Belum Diketahui / Kosongkan") }
     var kondisiInput by remember { mutableStateOf("Normal") }
     var keteranganInput by remember { mutableStateOf("") }
-    var isBorrowableInput by remember { mutableStateOf(true) }
+    var isBorrowableInput by remember { mutableStateOf(false) }
 
     // Edit Form State
     var editNameInput by remember { mutableStateOf("") }
@@ -220,20 +220,22 @@ fun AlatScreen(
     var editSumberDanaInput by remember { mutableStateOf("Belum Diketahui / Kosongkan") }
     var editKondisiInput by remember { mutableStateOf("Normal") }
     var editKeteranganInput by remember { mutableStateOf("") }
-    var editIsBorrowableInput by remember { mutableStateOf(true) }
+    var editIsBorrowableInput by remember { mutableStateOf(selectedItemForEdit?.isBorrowable ?: false) }
 
-    LaunchedEffect(selectedItemForEdit) {
-        selectedItemForEdit?.let { item ->
-            editNameInput = item.namaBarang
-            editCategoryInput = item.kategori
-            editUnitInput = item.satuan
-            editStockInput = item.stokAwal.toString()
-            editMerekAlatInput = item.merekAlat
-            editRuangInput = item.ruang
-            editSumberDanaInput = item.sumberDana ?: "Belum Diketahui / Kosongkan"
-            editKondisiInput = item.kondisi
-            editKeteranganInput = item.keterangan
-            editIsBorrowableInput = item.isBorrowable
+    LaunchedEffect(selectedItemForEdit, showEditDialog) {
+        if (showEditDialog) {
+            selectedItemForEdit?.let { item ->
+                editNameInput = item.namaBarang
+                editCategoryInput = item.kategori
+                editUnitInput = item.satuan
+                editStockInput = item.stokAwal.toString()
+                editMerekAlatInput = item.merekAlat
+                editRuangInput = item.ruang
+                editSumberDanaInput = item.sumberDana ?: "Belum Diketahui / Kosongkan"
+                editKondisiInput = item.kondisi
+                editKeteranganInput = item.keterangan
+                editIsBorrowableInput = item.isBorrowable
+            }
         }
     }
 
@@ -989,7 +991,7 @@ fun AlatScreen(
                                     onSuccess = {
                                         Toast.makeText(context, "Alat baru berhasil ditambahkan!", Toast.LENGTH_SHORT).show()
                                         showAddDialog = false
-                                        isBorrowableInput = true // Reset on success
+                                        isBorrowableInput = false // Reset on success
                                     },
                                     onError = { err ->
                                         Toast.makeText(context, "Gagal: $err", Toast.LENGTH_LONG).show()

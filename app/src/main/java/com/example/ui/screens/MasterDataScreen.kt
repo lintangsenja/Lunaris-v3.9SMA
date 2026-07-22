@@ -824,6 +824,7 @@ fun KelolaBarangTab(viewModel: InventoryViewModel) {
                                 kategori = editCategoryInput,
                                 satuan = editUnitInput,
                                 stokAwal = stock,
+                                isBorrowable = selectedItemForEdit!!.isBorrowable,
                                 onSuccess = {
                                     Toast.makeText(context, "Data barang berhasil diperbarui!", Toast.LENGTH_SHORT).show()
                                     showEditDialog = false

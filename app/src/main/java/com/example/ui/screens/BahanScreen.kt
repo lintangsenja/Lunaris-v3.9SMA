@@ -206,7 +206,7 @@ fun BahanScreen(
     var sumberDanaInput by remember { mutableStateOf("Belum Diketahui / Kosongkan") }
     var kondisiInput by remember { mutableStateOf("Normal") }
     var keteranganInput by remember { mutableStateOf("") }
-    var isBorrowableInput by remember { mutableStateOf(true) }
+    var isBorrowableInput by remember { mutableStateOf(false) }
 
     // Edit Form State
     var editNameInput by remember { mutableStateOf("") }
@@ -218,20 +218,22 @@ fun BahanScreen(
     var editSumberDanaInput by remember { mutableStateOf("Belum Diketahui / Kosongkan") }
     var editKondisiInput by remember { mutableStateOf("Normal") }
     var editKeteranganInput by remember { mutableStateOf("") }
-    var editIsBorrowableInput by remember { mutableStateOf(true) }
+    var editIsBorrowableInput by remember { mutableStateOf(selectedItemForEdit?.isBorrowable ?: false) }
 
-    LaunchedEffect(selectedItemForEdit) {
-        selectedItemForEdit?.let { item ->
-            editNameInput = item.namaBarang
-            editCategoryInput = item.kategori
-            editUnitInput = item.satuan
-            editStockInput = item.stokAwal.toString()
-            editMerekBahanInput = item.merekAlat ?: ""
-            editRuangInput = item.ruang ?: ""
-            editSumberDanaInput = item.sumberDana ?: "Belum Diketahui / Kosongkan"
-            editKondisiInput = item.kondisi ?: "Normal"
-            editKeteranganInput = item.keterangan ?: ""
-            editIsBorrowableInput = item.isBorrowable
+    LaunchedEffect(selectedItemForEdit, showEditDialog) {
+        if (showEditDialog) {
+            selectedItemForEdit?.let { item ->
+                editNameInput = item.namaBarang
+                editCategoryInput = item.kategori
+                editUnitInput = item.satuan
+                editStockInput = item.stokAwal.toString()
+                editMerekBahanInput = item.merekAlat ?: ""
+                editRuangInput = item.ruang ?: ""
+                editSumberDanaInput = item.sumberDana ?: "Belum Diketahui / Kosongkan"
+                editKondisiInput = item.kondisi ?: "Normal"
+                editKeteranganInput = item.keterangan ?: ""
+                editIsBorrowableInput = item.isBorrowable
+            }
         }
     }
 
@@ -909,7 +911,7 @@ fun BahanScreen(
                                         appliedCondition = "Semua Kondisi"
                                         appliedSource = "Semua Sumber Dana"
                                         showAddDialog = false
-                                        isBorrowableInput = true // Reset on success
+                                        isBorrowableInput = false // Reset on success
                                     },
                                     onError = { err ->
                                         Toast.makeText(context, "Gagal: $err", Toast.LENGTH_LONG).show()

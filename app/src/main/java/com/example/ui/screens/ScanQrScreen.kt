@@ -99,6 +99,9 @@ fun ScanQrScreen(
     val appBarContentColor = if (isDark) MaterialTheme.colorScheme.onSurface else DeepPurpleText
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
+    val userRole by viewModel.userRole.collectAsState()
+    val studentPermissions by viewModel.studentPermissions.collectAsState()
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Pindai QR", "Buat QR")
 
@@ -175,7 +178,15 @@ fun ScanQrScreen(
                         tabs.forEachIndexed { index, title ->
                             Tab(
                                 selected = selectedTab == index,
-                                onClick = { selectedTab = index },
+                                onClick = {
+                                    if (index == 1 && userRole == "siswa" && studentPermissions["generate_qr"] == false) {
+                                        Toast.makeText(context, "Akses 'Buat/Generate QR' dibatasi oleh Admin untuk Siswa", Toast.LENGTH_SHORT).show()
+                                    } else if (index == 0 && userRole == "siswa" && studentPermissions["scan_qr"] == false) {
+                                        Toast.makeText(context, "Akses 'Pindai/Scan QR' dibatasi oleh Admin untuk Siswa", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        selectedTab = index
+                                    }
+                                },
                                 text = { Text(title, fontWeight = FontWeight.Bold) }
                             )
                         }

@@ -25,6 +25,7 @@ import com.example.ui.screens.PengaturanScreen
 import com.example.ui.screens.BackupScreen
 import com.example.ui.screens.StokOpnameScreen
 import com.example.ui.screens.ScanQrScreen
+import com.example.ui.screens.UserManagementScreen
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import androidx.compose.animation.AnimatedVisibility
@@ -228,6 +229,7 @@ class MainActivity : ComponentActivity() {
                                         "Backup & Restore" -> "backup_restore"
                                         "Pengaturan" -> "pengaturan"
                                         "Pengaturan Akses", "Hak Akses", "Role Management" -> "role_management"
+                                        "Manajemen Pengguna", "User Management" -> "user_management"
                                         "Kondisi Alat" -> "kondisi_alat"
                                         "Alat" -> "alat"
                                         "Bahan" -> "bahan"
@@ -374,6 +376,12 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("role_management") {
                             RoleManagementScreen(
+                                viewModel = inventoryViewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("user_management") {
+                            UserManagementScreen(
                                 viewModel = inventoryViewModel,
                                 onNavigateBack = { navController.popBackStack() }
                             )

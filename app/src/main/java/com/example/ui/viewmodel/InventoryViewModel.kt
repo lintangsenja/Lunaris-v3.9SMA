@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
 import com.example.data.entity.ItemEntity
+import com.example.data.entity.UserEntity
 import com.example.data.entity.LoanItemEntity
 import com.example.data.entity.LoanTransactionEntity
 import com.example.data.model.ItemWithStock
@@ -39,6 +40,10 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     val settingsRepository = SettingsRepository(application)
     private val firebaseService = com.example.data.network.FirebaseService(db)
 
+    // Users State
+    val allUsers: StateFlow<List<UserEntity>> = db.inventoryDao().getAllUsers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Student Permissions Control State
     private val _studentPermissions = MutableStateFlow(settingsRepository.getStudentPermissions())
     val studentPermissions: StateFlow<Map<String, Boolean>> = _studentPermissions.asStateFlow()
@@ -48,6 +53,32 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         firebaseService.startRealtimeSync()
         initStudentPermissionsListener()
+        seedDefaultUsers()
+    }
+
+    private fun seedDefaultUsers() {
+        viewModelScope.launch {
+            try {
+                val dao = db.inventoryDao()
+                val count = dao.getAllUsers().first().size
+                if (count == 0) {
+                    dao.insertUser(UserEntity("admin", "admin123", "super_admin", "Super Admin"))
+                    dao.insertUser(UserEntity("lintang", "lintanglunaris", "super_admin", "Lintang (Super Admin)"))
+                    dao.insertUser(UserEntity("siswa", "siswa19", "siswa", "Siswa Lunaris"))
+                } else {
+                    val lintangUser = dao.getUserByUsername("lintang")
+                    if (lintangUser != null) {
+                        if (lintangUser.role != "super_admin") {
+                            dao.insertUser(lintangUser.copy(role = "super_admin", fullName = "Lintang (Super Admin)"))
+                        }
+                    } else {
+                        dao.insertUser(UserEntity("lintang", "lintanglunaris", "super_admin", "Lintang (Super Admin)"))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error seeding default users", e)
+            }
+        }
     }
 
     override fun onCleared() {
@@ -106,22 +137,61 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         saveStudentPermissionsToFirestore(updated)
     }
 
+    fun updateStudentPermissionsBatch(updates: Map<String, Boolean>) {
+        val updated = _studentPermissions.value.toMutableMap()
+        updated.putAll(updates)
+        _studentPermissions.value = updated
+        settingsRepository.saveStudentPermissions(updated)
+        saveStudentPermissionsToFirestore(updated)
+    }
+
     fun resetStudentPermissionsToDefault() {
         val defaults = mapOf(
-            "peminjaman" to true,
-            "pengembalian" to true,
-            "alat" to true,
-            "bahan" to true,
-            "scan_qr" to true,
-            "pemakaian_bahan" to false,
-            "bahan_afkir" to false,
-            "alat_rusak" to false,
-            "pemeliharaan" to false,
-            "kondisi_alat" to false,
+            "peminjaman" to false,
+            "peminjaman_form" to false,
+            "peminjaman_riwayat" to false,
+            "pengembalian" to false,
+            "pengembalian_normal" to false,
+            "pengembalian_parsial" to false,
+            "qr_group" to false,
+            "scan_qr" to false,
+            "generate_qr" to false,
             "log_transaksi" to false,
+            "log_transaksi_view" to false,
+            "log_transaksi_export" to false,
+
+            "alat" to false,
+            "alat_view" to false,
+            "alat_detail" to false,
+            "kondisi_alat" to false,
+            "kondisi_alat_view" to false,
+            "kondisi_alat_report" to false,
+            "alat_rusak" to false,
+            "alat_rusak_submit" to false,
+            "alat_rusak_view" to false,
+            "pemeliharaan" to false,
+            "pemeliharaan_view" to false,
+            "pemeliharaan_history" to false,
+
+            "bahan" to false,
+            "bahan_view" to false,
+            "bahan_detail" to false,
+            "pemakaian_bahan" to false,
+            "pemakaian_bahan_form" to false,
+            "pemakaian_bahan_log" to false,
+            "bahan_afkir" to false,
+            "bahan_afkir_view" to false,
+            "bahan_afkir_report" to false,
+
             "master_data" to false,
+            "master_data_view" to false,
+            "master_data_manage" to false,
             "stok_opname" to false,
-            "laporan" to false
+            "stok_opname_audit" to false,
+            "stok_opname_reconcile" to false,
+            "laporan" to false,
+            "laporan_view" to false,
+            "laporan_export" to false
         )
         _studentPermissions.value = defaults
         settingsRepository.saveStudentPermissions(defaults)
@@ -142,53 +212,129 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         val username = usernameInput.trim()
         val password = passwordInput.trim()
 
-        val expectedRole = when {
-            username == "lintang" && password == "lintanglunaris" -> "admin"
-            username == "siswa" && password == "siswa19" -> "siswa"
-            else -> {
-                onResult(false, "Username atau password salah!")
-                return
+        viewModelScope.launch {
+            val userFromDb = db.inventoryDao().getUserByUsername(username)
+
+            val expectedRole = when {
+                userFromDb != null && userFromDb.password == password -> {
+                    if (userFromDb.role == "super_admin" || userFromDb.role == "admin") "admin" else "siswa"
+                }
+                username == "admin" && password == "admin123" -> "admin"
+                username == "lintang" && password == "lintanglunaris" -> "admin"
+                username == "siswa" && password == "siswa19" -> "siswa"
+                else -> {
+                    onResult(false, "Username atau password salah!")
+                    return@launch
+                }
+            }
+
+            val userRoleActual = userFromDb?.role ?: (if (expectedRole == "admin") "admin" else "siswa")
+            val email = "${username}@lunaris.com"
+
+            val saveLocalStateAndSuccess = {
+                settingsRepository.setLoggedIn(true)
+                settingsRepository.setLoggedInUser(username)
+                settingsRepository.setUserRole(expectedRole)
+
+                _isLoggedIn.value = true
+                _userRole.value = expectedRole
+                _loggedInUser.value = username
+
+                val displayName = when (userRoleActual) {
+                    "super_admin" -> "Super Admin"
+                    "admin" -> "Admin"
+                    else -> "Siswa"
+                }
+                onResult(true, "Login berhasil sebagai $displayName!")
+            }
+
+            try {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            writeUserToFirestore(username, expectedRole)
+                            saveLocalStateAndSuccess()
+                        } else {
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { createDocTask ->
+                                    if (createDocTask.isSuccessful) {
+                                        writeUserToFirestore(username, expectedRole)
+                                        saveLocalStateAndSuccess()
+                                    } else {
+                                        Log.e("InventoryVM", "Firebase login/create failed, falling back to local", createDocTask.exception)
+                                        saveLocalStateAndSuccess()
+                                    }
+                                }
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Firebase SDK failure, falling back to local", e)
+                saveLocalStateAndSuccess()
             }
         }
+    }
 
-        val email = "${username}@lunaris.com"
+    fun registerUser(
+        usernameInput: String,
+        passwordInput: String,
+        role: String,
+        fullNameInput: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val username = usernameInput.trim().lowercase()
+        val password = passwordInput.trim()
+        val fullName = fullNameInput.trim().ifEmpty { username }
 
-        val saveLocalStateAndSuccess = {
-            settingsRepository.setLoggedIn(true)
-            settingsRepository.setLoggedInUser(username)
-            settingsRepository.setUserRole(expectedRole)
-
-            _isLoggedIn.value = true
-            _userRole.value = expectedRole
-            _loggedInUser.value = username
-
-            val displayName = if (expectedRole == "admin") "Admin" else "Siswa"
-            onResult(true, "Login berhasil sebagai $displayName!")
+        if (username.isBlank() || password.isBlank()) {
+            onResult(false, "Username dan password tidak boleh kosong!")
+            return
         }
 
-        try {
-            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        writeUserToFirestore(username, expectedRole)
-                        saveLocalStateAndSuccess()
-                    } else {
-                        auth.createUserWithEmailAndPassword(email, password)
-                            .addOnCompleteListener { createDocTask ->
-                                if (createDocTask.isSuccessful) {
-                                    writeUserToFirestore(username, expectedRole)
-                                    saveLocalStateAndSuccess()
-                                } else {
-                                    Log.e("InventoryVM", "Firebase login/create failed, falling back to local", createDocTask.exception)
-                                    saveLocalStateAndSuccess()
-                                }
-                            }
-                    }
+        viewModelScope.launch {
+            try {
+                val existing = db.inventoryDao().getUserByUsername(username)
+                if (existing != null) {
+                    onResult(false, "Username '$username' sudah terdaftar!")
+                    return@launch
                 }
-        } catch (e: Exception) {
-            Log.e("InventoryVM", "Firebase SDK failure, falling back to local", e)
-            saveLocalStateAndSuccess()
+
+                val newUser = UserEntity(
+                    username = username,
+                    password = password,
+                    role = role,
+                    fullName = fullName,
+                    createdAt = System.currentTimeMillis()
+                )
+                db.inventoryDao().insertUser(newUser)
+                writeUserToFirestore(username, if (role == "super_admin" || role == "admin") "admin" else "siswa")
+                onResult(true, "Pengguna '$username' berhasil ditambahkan!")
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error registering user", e)
+                onResult(false, "Gagal mendaftarkan pengguna: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteUser(usernameToDelete: String, onResult: (Boolean, String) -> Unit) {
+        val activeUser = _loggedInUser.value
+        if (usernameToDelete.equals(activeUser, ignoreCase = true)) {
+            onResult(false, "Anda tidak dapat menghapus akun Anda yang sedang aktif!")
+            return
+        }
+        if (usernameToDelete.equals("admin", ignoreCase = true) || usernameToDelete.equals("lintang", ignoreCase = true)) {
+            onResult(false, "Akun default Super Admin tidak dapat dihapus!")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                db.inventoryDao().deleteUserByUsername(usernameToDelete)
+                onResult(true, "Pengguna '$usernameToDelete' berhasil dihapus!")
+            } catch (e: Exception) {
+                Log.e("InventoryVM", "Error deleting user", e)
+                onResult(false, "Gagal menghapus pengguna: ${e.message}")
+            }
         }
     }
 
@@ -845,7 +991,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         sumberDana: String? = null,
         kondisi: String = "",
         keterangan: String = "",
-        isBorrowable: Boolean = true,
+        isBorrowable: Boolean = false,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -1011,7 +1157,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         sumberDana: String? = null,
         kondisi: String = "",
         keterangan: String = "",
-        isBorrowable: Boolean = true,
+        isBorrowable: Boolean = false,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -1254,6 +1400,29 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     isBorrowable = existingItem.isBorrowable
                 )
                 firebaseService.saveItemToFirestore(updatedItemEntity)
+
+                // Log to loan_transactions for Unified Transaction Audit & Reports
+                val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val sdfTime = SimpleDateFormat("HH:mm", Locale.US)
+                val currentDate = sdfDate.format(Date())
+                val currentTime = sdfTime.format(Date())
+                val auditTx = com.example.data.entity.LoanTransactionEntity(
+                    idTransaksi = "TX-PMK-${System.currentTimeMillis()}",
+                    tanggal = if (tanggalPemakaian.isNotBlank()) tanggalPemakaian else currentDate,
+                    waktu = currentTime,
+                    namaPeminjam = "Pemakaian: ${namaPeminta.trim()}" + if (!kelas.isNullOrBlank()) " ($kelas)" else "",
+                    kelas = if (!kelas.isNullOrBlank()) kelas.trim() else "Pemakaian Bahan",
+                    kondisi = "Habis Pakai",
+                    namaPetugas = namaPetugas.trim(),
+                    status = "Pemakaian Bahan",
+                    tanggalKembali = if (tanggalPemakaian.isNotBlank()) tanggalPemakaian else currentDate,
+                    waktuKembali = currentTime,
+                    kondisiKembali = "Habis Pakai",
+                    petugasKembali = namaPetugas.trim(),
+                    keteranganKerusakan = "Pemakaian bahan $namaBarang sebanyak $jumlahDiambil $satuan oleh ${namaPeminta.trim()} ($jabatan)."
+                )
+                db.inventoryDao().insertTransaction(auditTx)
+                firebaseService.saveTransactionToFirestore(auditTx)
 
                 onSuccess()
             } catch (e: Exception) {
@@ -1635,7 +1804,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         sumberDana: String? = null,
         kondisi: String = "",
         keterangan: String = "",
-        isBorrowable: Boolean = true,
+        isBorrowable: Boolean? = null,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -1646,6 +1815,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
                 val existing = itemsWithStock.value.find { it.idBarang == idBarang }
+                val finalIsBorrowable = isBorrowable ?: existing?.isBorrowable ?: false
                 val item = ItemEntity(
                     idBarang = idBarang,
                     namaBarang = namaBarang,
@@ -1659,7 +1829,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     kondisi = kondisi,
                     keterangan = keterangan,
                     type = existing?.type ?: "ALAT",
-                    isBorrowable = isBorrowable
+                    isBorrowable = finalIsBorrowable
                 )
                 repository.updateItem(item)
                 firebaseService.saveItemToFirestore(item)

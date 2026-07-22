@@ -223,7 +223,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun isLoggedIn(): Boolean {
-        return prefs.getBoolean("is_logged_in", true)
+        return prefs.getBoolean("is_logged_in", false)
     }
 
     fun setLoggedIn(loggedIn: Boolean) {
@@ -231,7 +231,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun getLoggedInUser(): String {
-        return prefs.getString("logged_in_user", "Admin") ?: "Admin"
+        return prefs.getString("logged_in_user", "") ?: ""
     }
 
     fun setLoggedInUser(username: String) {
@@ -239,7 +239,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun getUserRole(): String {
-        return prefs.getString("user_role", "admin") ?: "admin"
+        return prefs.getString("user_role", "siswa") ?: "siswa"
     }
 
     fun setUserRole(role: String) {
@@ -272,20 +272,51 @@ class SettingsRepository(private val context: Context) {
 
     fun getStudentPermissions(): Map<String, Boolean> {
         val defaults = mapOf(
-            "peminjaman" to true,
-            "pengembalian" to true,
-            "alat" to true,
-            "bahan" to true,
-            "scan_qr" to true,
-            "pemakaian_bahan" to false,
-            "bahan_afkir" to false,
-            "alat_rusak" to false,
-            "pemeliharaan" to false,
-            "kondisi_alat" to false,
+            "peminjaman" to false,
+            "peminjaman_form" to false,
+            "peminjaman_riwayat" to false,
+            "pengembalian" to false,
+            "pengembalian_normal" to false,
+            "pengembalian_parsial" to false,
+            "qr_group" to false,
+            "scan_qr" to false,
+            "generate_qr" to false,
             "log_transaksi" to false,
+            "log_transaksi_view" to false,
+            "log_transaksi_export" to false,
+
+            "alat" to false,
+            "alat_view" to false,
+            "alat_detail" to false,
+            "kondisi_alat" to false,
+            "kondisi_alat_view" to false,
+            "kondisi_alat_report" to false,
+            "alat_rusak" to false,
+            "alat_rusak_submit" to false,
+            "alat_rusak_view" to false,
+            "pemeliharaan" to false,
+            "pemeliharaan_view" to false,
+            "pemeliharaan_history" to false,
+
+            "bahan" to false,
+            "bahan_view" to false,
+            "bahan_detail" to false,
+            "pemakaian_bahan" to false,
+            "pemakaian_bahan_form" to false,
+            "pemakaian_bahan_log" to false,
+            "bahan_afkir" to false,
+            "bahan_afkir_view" to false,
+            "bahan_afkir_report" to false,
+
             "master_data" to false,
+            "master_data_view" to false,
+            "master_data_manage" to false,
             "stok_opname" to false,
-            "laporan" to false
+            "stok_opname_audit" to false,
+            "stok_opname_reconcile" to false,
+            "laporan" to false,
+            "laporan_view" to false,
+            "laporan_export" to false
         )
         val map = mutableMapOf<String, Boolean>()
         defaults.forEach { (key, defaultVal) ->

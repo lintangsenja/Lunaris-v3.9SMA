@@ -14,6 +14,7 @@ import com.example.data.entity.DamagedItemEntity
 import com.example.data.entity.PemakaianBahanEntity
 import com.example.data.entity.BahanAfkirEntity
 import com.example.data.entity.ProfileEntity
+import com.example.data.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 
 import com.example.data.entity.CategoryEntity
@@ -507,4 +508,20 @@ interface InventoryDao {
 
     @Query("DELETE FROM profile")
     suspend fun clearProfile()
+
+    // Users
+    @Query("SELECT * FROM users ORDER BY role ASC, username ASC")
+    fun getAllUsers(): Flow<List<UserEntity>>
+
+    @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
+    suspend fun getUserByUsername(username: String): UserEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUser(user: UserEntity)
+
+    @Query("DELETE FROM users WHERE username = :username")
+    suspend fun deleteUserByUsername(username: String)
+
+    @Query("DELETE FROM users")
+    suspend fun clearUsers()
 }

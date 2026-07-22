@@ -334,6 +334,41 @@ function getOrCreateSheet(ss, name) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (userRole == "admin") {
+                // Section 0: User Management Card
+                LunarisCard(
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Manajemen Pengguna & Level Akses",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Daftarkan pengguna baru, atur level akses (Super Admin, Admin, Siswa), dan kelola akun terdaftar.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Button(
+                            onClick = { onNavigateBack(); /* Will be routed via drawer or back navigation */ },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("btn_open_user_management")
+                        ) {
+                            Icon(imageVector = Icons.Default.Person, contentDescription = "User Management")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Buka Layar Manajemen Pengguna", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
                 // Section 1: Google Sheets Sync Setup
                 LunarisCard(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

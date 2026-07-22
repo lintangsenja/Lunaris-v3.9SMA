@@ -16,6 +16,7 @@ import com.example.data.entity.UnitEntity
 import com.example.data.entity.PemakaianBahanEntity
 import com.example.data.entity.BahanAfkirEntity
 import com.example.data.entity.ProfileEntity
+import com.example.data.entity.UserEntity
 
 @Database(
     entities = [
@@ -27,9 +28,10 @@ import com.example.data.entity.ProfileEntity
         UnitEntity::class,
         PemakaianBahanEntity::class,
         BahanAfkirEntity::class,
-        ProfileEntity::class
+        ProfileEntity::class,
+        UserEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,7 +57,8 @@ abstract class AppDatabase : RoomDatabase() {
                 "damaged_items" to "CREATE TABLE IF NOT EXISTS `damaged_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `idBarang` TEXT NOT NULL, `namaBarang` TEXT NOT NULL, `jumlah` INTEGER NOT NULL, `tanggalKerusakan` TEXT NOT NULL, `waktuKerusakan` TEXT NOT NULL, `keteranganKerusakan` TEXT NOT NULL, `namaPetugas` TEXT NOT NULL, `kondisiBaru` TEXT NOT NULL, `status` TEXT NOT NULL, `statusKeterangan` TEXT NOT NULL, `isDemo` INTEGER NOT NULL DEFAULT 0)",
                 "pemakaian_bahan" to "CREATE TABLE IF NOT EXISTS `pemakaian_bahan` (`idPemakaian` TEXT NOT NULL, `idBarang` TEXT NOT NULL, `namaBarang` TEXT NOT NULL, `jumlahDiambil` INTEGER NOT NULL, `satuan` TEXT NOT NULL, `namaPeminta` TEXT NOT NULL, `jabatan` TEXT NOT NULL, `kelas` TEXT, `namaPetugas` TEXT NOT NULL, `tanggalPemakaian` TEXT NOT NULL, `keterangan` TEXT NOT NULL, `isDemo` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`idPemakaian`))",
                 "loan_transactions" to "CREATE TABLE IF NOT EXISTS `loan_transactions` (`idTransaksi` TEXT NOT NULL, `tanggal` TEXT NOT NULL, `namaPeminjam` TEXT NOT NULL, `kelas` TEXT NOT NULL, `waktu` TEXT NOT NULL, `kondisi` TEXT NOT NULL, `namaPetugas` TEXT NOT NULL, `status` TEXT NOT NULL, `tanggalKembali` TEXT, `waktuKembali` TEXT, `kondisiKembali` TEXT, `petugasKembali` TEXT, `keteranganKerusakan` TEXT, `whatsappNumber` TEXT, `durasiHari` INTEGER NOT NULL DEFAULT 1, `isDemo` INTEGER NOT NULL DEFAULT 0, `tujuanPeminjaman` TEXT, `detailTujuan` TEXT, PRIMARY KEY(`idTransaksi`))",
-                "profile" to "CREATE TABLE IF NOT EXISTS `profile` (`id` INTEGER NOT NULL, `namaPetugas` TEXT NOT NULL, `nip` TEXT NOT NULL, `namaInstansi` TEXT NOT NULL, `fotoUri` TEXT NOT NULL, PRIMARY KEY(`id`))"
+                "profile" to "CREATE TABLE IF NOT EXISTS `profile` (`id` INTEGER NOT NULL, `namaPetugas` TEXT NOT NULL, `nip` TEXT NOT NULL, `namaInstansi` TEXT NOT NULL, `fotoUri` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                "users" to "CREATE TABLE IF NOT EXISTS `users` (`username` TEXT NOT NULL, `password` TEXT NOT NULL, `role` TEXT NOT NULL, `fullName` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`username`))"
             )
 
             val tablesWithColumns = mapOf(
@@ -158,6 +161,13 @@ abstract class AppDatabase : RoomDatabase() {
                     "nip" to "TEXT NOT NULL DEFAULT ''",
                     "namaInstansi" to "TEXT NOT NULL DEFAULT ''",
                     "fotoUri" to "TEXT NOT NULL DEFAULT ''"
+                ),
+                "users" to listOf(
+                    "username" to "TEXT NOT NULL DEFAULT ''",
+                    "password" to "TEXT NOT NULL DEFAULT ''",
+                    "role" to "TEXT NOT NULL DEFAULT 'siswa'",
+                    "fullName" to "TEXT NOT NULL DEFAULT ''",
+                    "createdAt" to "INTEGER NOT NULL DEFAULT 0"
                 )
             )
 
@@ -197,8 +207,8 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val migrations = (1..16).map { start ->
-                    object : Migration(start, 17) {
+                val migrations = (1..17).map { start ->
+                    object : Migration(start, 18) {
                         override fun migrate(database: SupportSQLiteDatabase) {
                             migrateDatabaseToLatest(database)
                         }

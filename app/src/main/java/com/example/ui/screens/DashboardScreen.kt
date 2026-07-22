@@ -594,6 +594,20 @@ fun DashboardScreen(
                             }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+                        DrawerMenuItem(
+                            label = "Manajemen Pengguna",
+                            icon = Icons.Default.AccountCircle,
+                            iconColor = Color(0xFF7C3AED),
+                            bgColor = Color(0xFFF3E8FF),
+                            borderColor = Color(0xFFE9D5FF),
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    onNavigateToMenu("Manajemen Pengguna")
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                     DrawerMenuItem(
                         label = "Scan QR Code",
@@ -944,6 +958,9 @@ fun DashboardScreen(
 
         fun isMenuAllowedForSiswa(route: String): Boolean {
             if (userRole == "admin") return true
+            if (route == "Scan QR") {
+                return (studentPermissions["scan_qr"] != false) || (studentPermissions["generate_qr"] == true) || (studentPermissions["qr_group"] != false)
+            }
             val permKey = when (route) {
                 "Alat" -> "alat"
                 "Bahan" -> "bahan"
@@ -958,10 +975,9 @@ fun DashboardScreen(
                 "Master Data" -> "master_data"
                 "Stok Opname" -> "stok_opname"
                 "Laporan" -> "laporan"
-                "Scan QR" -> "scan_qr"
                 else -> true
             }
-            return studentPermissions[permKey] ?: true
+            return studentPermissions[permKey] != false
         }
 
         val operasionalMenus = remember(userRole, studentPermissions) {
