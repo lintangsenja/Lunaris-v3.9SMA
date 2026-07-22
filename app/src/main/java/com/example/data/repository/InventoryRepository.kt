@@ -17,6 +17,13 @@ import com.example.data.entity.UnitEntity
 import com.example.data.entity.PemakaianBahanEntity
 import com.example.data.entity.BahanAfkirEntity
 
+data class TransactionDetailResult(
+    val transaction: LoanTransactionEntity,
+    val items: List<LoanItemEntity>,
+    val returnStatusDisplay: String,
+    val isReturned: Boolean
+)
+
 class InventoryRepository(
     private val inventoryDao: InventoryDao,
     private val syncService: GoogleSheetsSyncService
@@ -124,7 +131,38 @@ class InventoryRepository(
     }
 
     suspend fun getItemsForTransaction(idTransaksi: String): List<LoanItemEntity> {
-        return inventoryDao.getItemsForTransaction(idTransaksi)
+        val rawItems = inventoryDao.getItemsForTransaction(idTransaksi)
+        val mergedMap = LinkedHashMap<String, LoanItemEntity>()
+        for (item in rawItems) {
+            val key = if (item.idBarang.isNotBlank()) item.idBarang else item.namaBarang.trim().lowercase()
+            if (mergedMap.containsKey(key)) {
+                val existing = mergedMap[key]!!
+                mergedMap[key] = existing.copy(jumlah = existing.jumlah + item.jumlah)
+            } else {
+                mergedMap[key] = item
+            }
+        }
+        return mergedMap.values.toList()
+    }
+
+    suspend fun getTransactionDetail(idTransaksi: String): TransactionDetailResult? {
+        val tx = inventoryDao.getTransactionById(idTransaksi) ?: return null
+        val items = getItemsForTransaction(idTransaksi)
+        val isReturned = tx.status == "Kembali"
+        val returnStatusDisplay = if (isReturned) {
+            val tgl = tx.tanggalKembali ?: tx.tanggal
+            val wkt = tx.waktuKembali ?: tx.waktu
+            val ptg = tx.petugasKembali ?: tx.namaPetugas
+            "Dikembalikan pada $tgl $wkt WIB (Petugas: $ptg)"
+        } else {
+            "Belum Dikembalikan"
+        }
+        return TransactionDetailResult(
+            transaction = tx,
+            items = items,
+            returnStatusDisplay = returnStatusDisplay,
+            isReturned = isReturned
+        )
     }
 
     suspend fun getAllLoanItems(): List<LoanItemEntity> {
@@ -165,6 +203,7 @@ class InventoryRepository(
         petugasKembali: String,
         keteranganKerusakan: String?,
         itemConditions: Map<String, String> = emptyMap(),
+        itemDamagedCounts: Map<String, Int> = emptyMap(),
         itemNotes: Map<String, String> = emptyMap(),
         settingsRepo: SettingsRepository
     ): Boolean {
@@ -199,77 +238,86 @@ class InventoryRepository(
         loanItems.forEach { item ->
             val cond = itemConditions[item.idBarang] ?: "Baik / Normal"
             val note = itemNotes[item.idBarang]?.trim() ?: ""
+            val totalQty = item.jumlah
 
-            when (cond) {
-                "Rusak Ringan", "Rusak" -> {
-                    inventoryDao.addStokRusak(item.idBarang, item.jumlah)
-                    inventoryDao.updateItemKondisi(item.idBarang, "Rusak Ringan")
-                    damagedItems.add(
-                        com.example.data.entity.DamagedItemEntity(
-                            idBarang = item.idBarang,
-                            namaBarang = item.namaBarang,
-                            jumlah = item.jumlah,
-                            tanggalKerusakan = tanggalKembali,
-                            waktuKerusakan = waktuKembali,
-                            keteranganKerusakan = note.ifBlank { "Rusak Ringan saat pengembalian" },
-                            namaPetugas = petugasKembali,
-                            kondisiBaru = "Rusak Ringan",
-                            status = "Rusak (Perlu Tindakan)"
+            val damagedQty = if (itemDamagedCounts.containsKey(item.idBarang)) {
+                (itemDamagedCounts[item.idBarang] ?: 0).coerceIn(0, totalQty)
+            } else {
+                if (cond == "Baik / Normal") 0 else totalQty
+            }
+
+            if (damagedQty > 0) {
+                val effectiveCond = if (cond == "Baik / Normal") "Rusak Ringan" else cond
+                when (effectiveCond) {
+                    "Rusak Ringan", "Rusak" -> {
+                        inventoryDao.addStokRusak(item.idBarang, damagedQty)
+                        inventoryDao.updateItemKondisi(item.idBarang, "Rusak Ringan")
+                        damagedItems.add(
+                            com.example.data.entity.DamagedItemEntity(
+                                idBarang = item.idBarang,
+                                namaBarang = item.namaBarang,
+                                jumlah = damagedQty,
+                                tanggalKerusakan = tanggalKembali,
+                                waktuKerusakan = waktuKembali,
+                                keteranganKerusakan = note.ifBlank { "Rusak Ringan saat pengembalian ($damagedQty unit dari $totalQty unit)" },
+                                namaPetugas = petugasKembali,
+                                kondisiBaru = "Rusak Ringan",
+                                status = "Rusak (Perlu Tindakan)"
+                            )
                         )
-                    )
-                }
-                "Rusak Berat" -> {
-                    inventoryDao.addStokRusak(item.idBarang, item.jumlah)
-                    inventoryDao.updateItemKondisi(item.idBarang, "Rusak Berat")
-                    damagedItems.add(
-                        com.example.data.entity.DamagedItemEntity(
-                            idBarang = item.idBarang,
-                            namaBarang = item.namaBarang,
-                            jumlah = item.jumlah,
-                            tanggalKerusakan = tanggalKembali,
-                            waktuKerusakan = waktuKembali,
-                            keteranganKerusakan = note.ifBlank { "Rusak Berat saat pengembalian" },
-                            namaPetugas = petugasKembali,
-                            kondisiBaru = "Rusak Berat",
-                            status = "Rusak (Perlu Tindakan)"
+                    }
+                    "Rusak Berat" -> {
+                        inventoryDao.addStokRusak(item.idBarang, damagedQty)
+                        inventoryDao.updateItemKondisi(item.idBarang, "Rusak Berat")
+                        damagedItems.add(
+                            com.example.data.entity.DamagedItemEntity(
+                                idBarang = item.idBarang,
+                                namaBarang = item.namaBarang,
+                                jumlah = damagedQty,
+                                tanggalKerusakan = tanggalKembali,
+                                waktuKerusakan = waktuKembali,
+                                keteranganKerusakan = note.ifBlank { "Rusak Berat saat pengembalian ($damagedQty unit dari $totalQty unit)" },
+                                namaPetugas = petugasKembali,
+                                kondisiBaru = "Rusak Berat",
+                                status = "Rusak (Perlu Tindakan)"
+                            )
                         )
-                    )
-                }
-                "Hilang" -> {
-                    inventoryDao.decreaseItemStock(item.idBarang, item.jumlah)
-                    inventoryDao.updateItemKondisi(item.idBarang, "Hilang")
-                    damagedItems.add(
-                        com.example.data.entity.DamagedItemEntity(
-                            idBarang = item.idBarang,
-                            namaBarang = item.namaBarang,
-                            jumlah = item.jumlah,
-                            tanggalKerusakan = tanggalKembali,
-                            waktuKerusakan = waktuKembali,
-                            keteranganKerusakan = note.ifBlank { "Hilang saat pengembalian" },
-                            namaPetugas = petugasKembali,
-                            kondisiBaru = "Hilang",
-                            status = "Hilang"
+                    }
+                    "Hilang" -> {
+                        inventoryDao.decreaseItemStock(item.idBarang, damagedQty)
+                        inventoryDao.updateItemKondisi(item.idBarang, "Hilang")
+                        damagedItems.add(
+                            com.example.data.entity.DamagedItemEntity(
+                                idBarang = item.idBarang,
+                                namaBarang = item.namaBarang,
+                                jumlah = damagedQty,
+                                tanggalKerusakan = tanggalKembali,
+                                waktuKerusakan = waktuKembali,
+                                keteranganKerusakan = note.ifBlank { "Hilang saat pengembalian ($damagedQty unit dari $totalQty unit)" },
+                                namaPetugas = petugasKembali,
+                                kondisiBaru = "Hilang",
+                                status = "Hilang"
+                            )
                         )
-                    )
-                }
-                "Pemeliharaan" -> {
-                    inventoryDao.addStokRusak(item.idBarang, item.jumlah)
-                    inventoryDao.updateItemKondisi(item.idBarang, "Pemeliharaan")
-                    damagedItems.add(
-                        com.example.data.entity.DamagedItemEntity(
-                            idBarang = item.idBarang,
-                            namaBarang = item.namaBarang,
-                            jumlah = item.jumlah,
-                            tanggalKerusakan = tanggalKembali,
-                            waktuKerusakan = waktuKembali,
-                            keteranganKerusakan = note.ifBlank { "Dalam pemeliharaan saat pengembalian" },
-                            namaPetugas = petugasKembali,
-                            kondisiBaru = "Pemeliharaan",
-                            status = "Servis Luar/Pemeliharaan"
+                    }
+                    "Pemeliharaan" -> {
+                        inventoryDao.addStokRusak(item.idBarang, damagedQty)
+                        inventoryDao.updateItemKondisi(item.idBarang, "Pemeliharaan")
+                        damagedItems.add(
+                            com.example.data.entity.DamagedItemEntity(
+                                idBarang = item.idBarang,
+                                namaBarang = item.namaBarang,
+                                jumlah = damagedQty,
+                                tanggalKerusakan = tanggalKembali,
+                                waktuKerusakan = waktuKembali,
+                                keteranganKerusakan = note.ifBlank { "Dalam pemeliharaan saat pengembalian ($damagedQty unit dari $totalQty unit)" },
+                                namaPetugas = petugasKembali,
+                                kondisiBaru = "Pemeliharaan",
+                                status = "Servis Luar/Pemeliharaan"
+                            )
                         )
-                    )
+                    }
                 }
-                // Else "Baik / Normal" - nothing to do for stock, transaction 'Kembali' handles returning it
             }
         }
 

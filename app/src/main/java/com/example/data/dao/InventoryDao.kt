@@ -33,16 +33,24 @@ interface InventoryDao {
           i.stokAwal,
           CASE 
             WHEN (i.stokAwal - COALESCE((
-                SELECT SUM(li.jumlah) 
-                FROM loan_items li 
-                INNER JOIN loan_transactions lt ON li.idTransaksi = lt.idTransaksi
-                WHERE li.idBarang = i.idBarang AND lt.status = 'Dipinjam'
+                SELECT SUM(sub.jumlah)
+                FROM (
+                  SELECT idTransaksi, idBarang, MAX(jumlah) AS jumlah
+                  FROM loan_items
+                  GROUP BY idTransaksi, idBarang
+                ) sub
+                INNER JOIN loan_transactions lt ON sub.idTransaksi = lt.idTransaksi
+                WHERE sub.idBarang = i.idBarang AND lt.status = 'Dipinjam'
             ), 0) - i.stokRusak) < 0 THEN 0
             ELSE (i.stokAwal - COALESCE((
-                SELECT SUM(li.jumlah) 
-                FROM loan_items li 
-                INNER JOIN loan_transactions lt ON li.idTransaksi = lt.idTransaksi
-                WHERE li.idBarang = i.idBarang AND lt.status = 'Dipinjam'
+                SELECT SUM(sub.jumlah)
+                FROM (
+                  SELECT idTransaksi, idBarang, MAX(jumlah) AS jumlah
+                  FROM loan_items
+                  GROUP BY idTransaksi, idBarang
+                ) sub
+                INNER JOIN loan_transactions lt ON sub.idTransaksi = lt.idTransaksi
+                WHERE sub.idBarang = i.idBarang AND lt.status = 'Dipinjam'
             ), 0) - i.stokRusak)
           END AS stokTersedia,
           i.kategori,
@@ -123,12 +131,19 @@ interface InventoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLoanItems(items: List<LoanItemEntity>)
 
+    @Query("DELETE FROM loan_items WHERE idTransaksi = :idTransaksi")
+    suspend fun deleteLoanItemsForTransaction(idTransaksi: String)
+
+    @Query("DELETE FROM loan_items WHERE rowid NOT IN (SELECT MIN(rowid) FROM loan_items GROUP BY idTransaksi, idBarang)")
+    suspend fun cleanupDuplicateLoanItems()
+
     @Update
     suspend fun updateTransaction(transaction: LoanTransactionEntity)
 
     @Transaction
     suspend fun createLoan(transaction: LoanTransactionEntity, items: List<LoanItemEntity>) {
         insertTransaction(transaction)
+        deleteLoanItemsForTransaction(transaction.idTransaksi)
         insertLoanItems(items)
     }
 

@@ -260,7 +260,7 @@ fun ProfileScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 40.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -641,6 +641,8 @@ fun ProfileScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

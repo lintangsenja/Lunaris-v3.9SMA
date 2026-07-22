@@ -46,6 +46,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -60,6 +61,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -161,6 +164,8 @@ fun PengembalianScreen(
     var namaPetugasKembali by remember { mutableStateOf("") }
 
     var itemConditionsMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var itemDamagedCountsMap by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var itemAllDamagedMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var itemNotesMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
     val kategoriPeminjam = remember(selectedTransaction, listGuruNames, listStafNames) {
@@ -199,10 +204,14 @@ fun PengembalianScreen(
 
     LaunchedEffect(borrowedItemsList.value) {
         val consolidated = consolidateLoanItems(borrowedItemsList.value)
-        val initialConditions = consolidated.associate { it.idBarang to (itemConditionsMap[it.idBarang] ?: "Baik / Normal") }
+        val initialConditions = consolidated.associate { it.idBarang to (itemConditionsMap[it.idBarang] ?: "Rusak Ringan") }
         itemConditionsMap = initialConditions
         val initialNotes = consolidated.associate { it.idBarang to (itemNotesMap[it.idBarang] ?: "") }
         itemNotesMap = initialNotes
+        val initialDamagedCounts = consolidated.associate { it.idBarang to (itemDamagedCountsMap[it.idBarang] ?: 0) }
+        itemDamagedCountsMap = initialDamagedCounts
+        val initialAllDamaged = consolidated.associate { it.idBarang to (itemAllDamagedMap[it.idBarang] ?: false) }
+        itemAllDamagedMap = initialAllDamaged
     }
 
     LaunchedEffect(Unit) {
@@ -643,8 +652,12 @@ fun PengembalianScreen(
 
                         val consolidatedList = remember(borrowedItemsList.value) { consolidateLoanItems(borrowedItemsList.value) }
                         consolidatedList.forEach { item ->
-                            var itemKondisiExpanded by remember { mutableStateOf(false) }
-                            val currentCondition = itemConditionsMap[item.idBarang] ?: "Baik / Normal"
+                            val totalQty = item.jumlah
+                            val isAllDamaged = itemAllDamagedMap[item.idBarang] ?: false
+                            val rawDamaged = itemDamagedCountsMap[item.idBarang] ?: 0
+                            val damagedQty = if (isAllDamaged) totalQty else rawDamaged.coerceIn(0, totalQty)
+                            val goodQty = (totalQty - damagedQty).coerceAtLeast(0)
+                            val currentCondition = itemConditionsMap[item.idBarang] ?: "Rusak Ringan"
                             val currentNote = itemNotesMap[item.idBarang] ?: ""
 
                             Column(
@@ -662,6 +675,7 @@ fun PengembalianScreen(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                // Item Header & Summary Badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -679,74 +693,194 @@ fun PengembalianScreen(
                                             color = MaterialTheme.colorScheme.tertiary
                                         )
                                     }
+                                    val (badgeBg, badgeText, badgeColor) = when {
+                                        damagedQty == 0 -> Triple(Color(0xFFDCFCE7), "$totalQty unit Baik", Color(0xFF166534))
+                                        goodQty == 0 -> Triple(Color(0xFFFEE2E2), "$totalQty unit Rusak Total", Color(0xFF991B1B))
+                                        else -> Triple(Color(0xFFFEF3C7), "$goodQty Baik / $damagedQty Rusak", Color(0xFF92400E))
+                                    }
                                     Box(
                                         modifier = Modifier
-                                            .background(
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                                MaterialTheme.shapes.small
-                                            )
+                                            .background(badgeBg, MaterialTheme.shapes.small)
                                             .padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
                                         Text(
-                                            text = "${item.jumlah} unit",
+                                            text = badgeText,
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = badgeColor
                                         )
                                     }
                                 }
 
-                                // Condition Dropdown for this item
-                                ExposedDropdownMenuBox(
-                                    expanded = itemKondisiExpanded,
-                                    onExpandedChange = { itemKondisiExpanded = it },
-                                    modifier = Modifier.fillMaxWidth()
+                                // Checkbox: Semua unit rusak total
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val newChecked = !isAllDamaged
+                                            itemAllDamagedMap = itemAllDamagedMap.toMutableMap().apply { put(item.idBarang, newChecked) }
+                                            if (newChecked) {
+                                                itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, totalQty) }
+                                            } else {
+                                                itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, 0) }
+                                            }
+                                        }
+                                        .padding(vertical = 2.dp)
                                 ) {
-                                    LunarisTextField(
-                                        value = currentCondition,
-                                        onValueChange = {},
-                                        readOnly = true,
-                                        label = { Text("Kondisi Kembali") },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemKondisiExpanded) },
-                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                    Checkbox(
+                                        checked = isAllDamaged,
+                                        onCheckedChange = { checked ->
+                                            itemAllDamagedMap = itemAllDamagedMap.toMutableMap().apply { put(item.idBarang, checked) }
+                                            if (checked) {
+                                                itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, totalQty) }
+                                            } else {
+                                                itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, 0) }
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("checkbox_all_damaged_${item.idBarang}")
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Semua unit rusak total",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                // Counter & Sub-Input for Damaged vs Good Units
+                                if (!isAllDamaged) {
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                                            .testTag("select_kondisi_${item.idBarang}")
-                                    )
-                                    ExposedDropdownMenu(
-                                        expanded = itemKondisiExpanded,
-                                        onDismissRequest = { itemKondisiExpanded = false }
+                                            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.small)
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), MaterialTheme.shapes.small)
+                                            .padding(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        listOf("Baik / Normal", "Rusak Ringan", "Rusak Berat", "Hilang", "Pemeliharaan").forEach { conditionOption ->
-                                            DropdownMenuItem(
-                                                text = { Text(conditionOption) },
-                                                onClick = {
-                                                    itemConditionsMap = itemConditionsMap.toMutableMap().apply {
-                                                        put(item.idBarang, conditionOption)
-                                                    }
-                                                    itemKondisiExpanded = false
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Jumlah Unit Rusak / Bermasalah:",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                IconButton(
+                                                    onClick = {
+                                                        val newCount = (damagedQty - 1).coerceAtLeast(0)
+                                                        itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, newCount) }
+                                                    },
+                                                    enabled = damagedQty > 0,
+                                                    modifier = Modifier.size(32.dp).testTag("btn_minus_${item.idBarang}")
+                                                ) {
+                                                    Icon(Icons.Default.Remove, contentDescription = "Kurangi Unit Rusak")
                                                 }
+                                                Text(
+                                                    text = "$damagedQty",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        val newCount = (damagedQty + 1).coerceAtMost(totalQty)
+                                                        itemDamagedCountsMap = itemDamagedCountsMap.toMutableMap().apply { put(item.idBarang, newCount) }
+                                                    },
+                                                    enabled = damagedQty < totalQty,
+                                                    modifier = Modifier.size(32.dp).testTag("btn_plus_${item.idBarang}")
+                                                ) {
+                                                    Icon(Icons.Default.Add, contentDescription = "Tambah Unit Rusak")
+                                                }
+                                            }
+                                        }
+
+                                        // Dynamic Sub-Input Sisa Counter
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    if (goodQty == totalQty) Color(0xFFDCFCE7) else if (goodQty > 0) Color(0xFFFEF3C7) else Color(0xFFFEE2E2),
+                                                    MaterialTheme.shapes.extraSmall
+                                                )
+                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Sisa Unit Baik (Otomatis):",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = if (goodQty == totalQty) Color(0xFF166534) else if (goodQty > 0) Color(0xFF92400E) else Color(0xFF991B1B)
+                                            )
+                                            Text(
+                                                text = "$goodQty unit",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (goodQty == totalQty) Color(0xFF166534) else if (goodQty > 0) Color(0xFF92400E) else Color(0xFF991B1B)
                                             )
                                         }
                                     }
                                 }
 
-                                // Note/Keterangan for this item
-                                LunarisTextField(
-                                    value = currentNote,
-                                    onValueChange = { newNote ->
-                                        itemNotesMap = itemNotesMap.toMutableMap().apply {
-                                            put(item.idBarang, newNote)
+                                // Jenis Kerusakan Dropdown & Catatan (If damagedQty > 0)
+                                if (damagedQty > 0) {
+                                    var itemKondisiExpanded by remember { mutableStateOf(false) }
+                                    ExposedDropdownMenuBox(
+                                        expanded = itemKondisiExpanded,
+                                        onExpandedChange = { itemKondisiExpanded = it },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        LunarisTextField(
+                                            value = currentCondition,
+                                            onValueChange = {},
+                                            readOnly = true,
+                                            label = { Text("Jenis Kerusakan / Status") },
+                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = itemKondisiExpanded) },
+                                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                                .testTag("select_kondisi_${item.idBarang}")
+                                        )
+                                        ExposedDropdownMenu(
+                                            expanded = itemKondisiExpanded,
+                                            onDismissRequest = { itemKondisiExpanded = false }
+                                        ) {
+                                            listOf("Rusak Ringan", "Rusak Berat", "Hilang", "Pemeliharaan").forEach { conditionOption ->
+                                                DropdownMenuItem(
+                                                    text = { Text(conditionOption) },
+                                                    onClick = {
+                                                        itemConditionsMap = itemConditionsMap.toMutableMap().apply {
+                                                            put(item.idBarang, conditionOption)
+                                                        }
+                                                        itemKondisiExpanded = false
+                                                    }
+                                                )
+                                            }
                                         }
-                                    },
-                                    label = { Text("Catatan Kondisi / Kerusakan (Opsional)") },
-                                    placeholder = { Text("Contoh: Gelas retak sedikit, hilang 1 kabel, dll.") },
-                                    singleLine = true,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("note_${item.idBarang}")
-                                )
+                                    }
+
+                                    // Note/Keterangan for this item
+                                    LunarisTextField(
+                                        value = currentNote,
+                                        onValueChange = { newNote ->
+                                            itemNotesMap = itemNotesMap.toMutableMap().apply {
+                                                put(item.idBarang, newNote)
+                                            }
+                                        },
+                                        label = { Text("Catatan Kerusakan ($damagedQty unit)") },
+                                        placeholder = { Text("Contoh: Tombol retak, 1 kabel hilang, dll.") },
+                                        singleLine = true,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("note_${item.idBarang}")
+                                    )
+                                }
                             }
                         }
                     }
@@ -771,8 +905,23 @@ fun PengembalianScreen(
                     )
 
                     // Calculated overall condition
-                    val allNormal = itemConditionsMap.values.all { it == "Baik / Normal" }
-                    val calculatedOverallStatus = if (allNormal) "Normal / Baik" else "Kondisional (Ada Kerusakan/Hilang)"
+                    val consolidated = consolidateLoanItems(borrowedItemsList.value)
+                    val anyDamaged = consolidated.any { item ->
+                        val isAll = itemAllDamagedMap[item.idBarang] ?: false
+                        val count = if (isAll) item.jumlah else (itemDamagedCountsMap[item.idBarang] ?: 0)
+                        count > 0
+                    }
+                    val allDamagedTotal = consolidated.isNotEmpty() && consolidated.all { item ->
+                        val isAll = itemAllDamagedMap[item.idBarang] ?: false
+                        val count = if (isAll) item.jumlah else (itemDamagedCountsMap[item.idBarang] ?: 0)
+                        count == item.jumlah
+                    }
+
+                    val calculatedOverallStatus = when {
+                        !anyDamaged -> "Normal / Baik Total"
+                        allDamagedTotal -> "Rusak Total / Total Loss"
+                        else -> "Kondisional (Parsial: Sebagian Baik, Sebagian Rusak)"
+                    }
 
                     LunarisTextField(
                         value = calculatedOverallStatus,
@@ -816,17 +965,43 @@ fun PengembalianScreen(
                         return@Button
                     }
 
-                    val allNormal = itemConditionsMap.values.all { it == "Baik / Normal" }
-                    val calculatedKondisiKembali = if (allNormal) "Normal" else "Kondisional"
+                    val consolidated = consolidateLoanItems(borrowedItemsList.value)
+                    val anyDamaged = consolidated.any { item ->
+                        val isAll = itemAllDamagedMap[item.idBarang] ?: false
+                        val count = if (isAll) item.jumlah else (itemDamagedCountsMap[item.idBarang] ?: 0)
+                        count > 0
+                    }
+                    val allDamagedTotal = consolidated.isNotEmpty() && consolidated.all { item ->
+                        val isAll = itemAllDamagedMap[item.idBarang] ?: false
+                        val count = if (isAll) item.jumlah else (itemDamagedCountsMap[item.idBarang] ?: 0)
+                        count == item.jumlah
+                    }
+
+                    val calculatedKondisiKembali = when {
+                        !anyDamaged -> "Normal"
+                        allDamagedTotal -> "Rusak"
+                        else -> "Kondisional"
+                    }
 
                     val detailedNotes = StringBuilder()
                     detailedNotes.append("Kategori: $kategoriPeminjam\n")
                     detailedNotes.append("Tujuan: ${selectedTransaction?.tujuanPeminjaman ?: "-"}\n")
-                    detailedNotes.append("Rincian Kondisi Kembali:\n")
-                    consolidateLoanItems(borrowedItemsList.value).forEach { item ->
-                        val cond = itemConditionsMap[item.idBarang] ?: "Baik / Normal"
+                    detailedNotes.append("Rincian Kondisi Pengembalian:\n")
+                    consolidated.forEach { item ->
+                        val totalQty = item.jumlah
+                        val isAll = itemAllDamagedMap[item.idBarang] ?: false
+                        val damagedQty = if (isAll) totalQty else (itemDamagedCountsMap[item.idBarang] ?: 0).coerceIn(0, totalQty)
+                        val goodQty = totalQty - damagedQty
+                        val cond = itemConditionsMap[item.idBarang] ?: "Rusak Ringan"
                         val note = itemNotesMap[item.idBarang]?.trim() ?: ""
-                        detailedNotes.append("- ${item.namaBarang}: $cond" + (if (note.isNotEmpty()) " (Catatan: $note)" else "") + "\n")
+
+                        if (damagedQty == 0) {
+                            detailedNotes.append("- ${item.namaBarang}: $totalQty unit Baik\n")
+                        } else if (goodQty == 0) {
+                            detailedNotes.append("- ${item.namaBarang}: $totalQty unit $cond" + (if (note.isNotEmpty()) " (Catatan: $note)" else "") + "\n")
+                        } else {
+                            detailedNotes.append("- ${item.namaBarang}: $goodQty unit Baik, $damagedQty unit $cond" + (if (note.isNotEmpty()) " (Catatan: $note)" else "") + "\n")
+                        }
                     }
                     val finalKeteranganKerusakan = detailedNotes.toString().trim()
 
@@ -838,6 +1013,7 @@ fun PengembalianScreen(
                         waktuKembali = waktuText,
                         keteranganKerusakan = finalKeteranganKerusakan,
                         itemConditions = itemConditionsMap,
+                        itemDamagedCounts = itemDamagedCountsMap,
                         itemNotes = itemNotesMap,
                         onSuccess = {
                             Toast.makeText(context, "Pengembalian barang berhasil disimpan!", Toast.LENGTH_LONG).show()

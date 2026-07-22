@@ -165,7 +165,12 @@ class FirebaseService(private val db: AppDatabase) {
                                 itemsList.add(loanItem)
                             }
                             if (itemsList.isNotEmpty()) {
-                                db.inventoryDao().insertLoanItems(itemsList)
+                                val groupedByTx = itemsList.groupBy { it.idTransaksi }
+                                for ((txId, txItems) in groupedByTx) {
+                                    db.inventoryDao().deleteLoanItemsForTransaction(txId)
+                                    db.inventoryDao().insertLoanItems(txItems)
+                                }
+                                db.inventoryDao().cleanupDuplicateLoanItems()
                             }
                             Log.d("FirebaseService", "Synced ${snapshot.size()} loan items from Firestore to Room.")
                         } catch (e: Exception) {

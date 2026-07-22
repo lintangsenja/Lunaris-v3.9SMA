@@ -843,35 +843,35 @@ fun RenderSirkulasiList(
                             }
                         }
 
-                        if (tx.status == "Kembali") {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                verticalAlignment = Alignment.Top,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AssignmentReturned,
-                                    contentDescription = "Kembali",
-                                    tint = Color(0xFF115E59),
-                                    modifier = Modifier.size(18.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = if (tx.status == "Kembali") Icons.Default.AssignmentReturned else Icons.Default.PendingActions,
+                                contentDescription = "Detail Pengembalian",
+                                tint = if (tx.status == "Kembali") Color(0xFF115E59) else Color(0xFFD97706),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Detail Pengembalian",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (tx.status == "Kembali") Color(0xFF115E59) else Color(0xFFD97706)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                if (tx.status == "Kembali" && !tx.tanggalKembali.isNullOrBlank()) {
                                     Text(
-                                        text = "Detail Pengembalian",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF115E59)
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Tanggal: ${tx.tanggalKembali ?: "-"} • Waktu: ${tx.waktuKembali ?: "-"} WIB",
+                                        text = "Tanggal: ${tx.tanggalKembali} • Waktu: ${tx.waktuKembali ?: "-"} WIB",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Kondisi Kembali: ${tx.kondisiKembali ?: "-"}",
+                                        text = "Kondisi Kembali: ${tx.kondisiKembali ?: "Baik / Normal"}",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -881,6 +881,13 @@ fun RenderSirkulasiList(
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Status: Belum Dikembalikan",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFDC2626)
                                     )
                                 }
                             }

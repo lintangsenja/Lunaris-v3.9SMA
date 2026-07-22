@@ -861,6 +861,52 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 val currentItems = itemsWithStock.value
+                val existing = currentItems.find { it.namaBarang.equals(name.trim(), ignoreCase = true) }
+                if (existing != null) {
+                    val newStokAwal = existing.stokAwal + stokAwal
+                    val updatedItemEntity = ItemEntity(
+                        idBarang = existing.idBarang,
+                        namaBarang = existing.namaBarang,
+                        stokAwal = newStokAwal,
+                        kategori = if (kategori.isNotBlank()) kategori.trim() else existing.kategori,
+                        satuan = if (satuan.isNotBlank()) satuan.trim() else existing.satuan,
+                        stokRusak = existing.stokRusak,
+                        merekAlat = if (merekAlat.isNotBlank()) merekAlat.trim() else existing.merekAlat,
+                        ruang = if (ruang.isNotBlank()) ruang.trim() else existing.ruang,
+                        sumberDana = sumberDana ?: existing.sumberDana,
+                        kondisi = if (kondisi.isNotBlank()) kondisi.trim() else existing.kondisi,
+                        keterangan = if (keterangan.isNotBlank()) keterangan.trim() else existing.keterangan,
+                        type = "BAHAN",
+                        isBorrowable = isBorrowable
+                    )
+                    repository.updateItem(updatedItemEntity)
+                    firebaseService.saveItemToFirestore(updatedItemEntity)
+
+                    val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    val sdfTime = SimpleDateFormat("HH:mm", Locale.US)
+                    val currentDate = sdfDate.format(Date())
+                    val currentTime = sdfTime.format(Date())
+                    val auditTx = com.example.data.entity.LoanTransactionEntity(
+                        idTransaksi = "TX-INP-${System.currentTimeMillis()}",
+                        tanggal = currentDate,
+                        waktu = currentTime,
+                        namaPeminjam = "Penambahan Stok: ${name.trim()}",
+                        kelas = "Sistem / Aset",
+                        kondisi = kondisi.trim().ifEmpty { "Baik" },
+                        namaPetugas = defaultOfficer.value.ifBlank { "Administrator" },
+                        status = "Aset Baru",
+                        tanggalKembali = currentDate,
+                        waktuKembali = currentTime,
+                        kondisiKembali = kondisi.trim().ifEmpty { "Baik" },
+                        petugasKembali = defaultOfficer.value.ifBlank { "Administrator" },
+                        keteranganKerusakan = "Stok bahan bertambah $stokAwal $satuan. Total stok awal sekarang: $newStokAwal."
+                    )
+                    db.inventoryDao().insertTransaction(auditTx)
+                    getAllBahan()
+                    onSuccess()
+                    return@launch
+                }
+
                 var maxIdNum = 0
                 currentItems.forEach { item ->
                     if (item.idBarang.startsWith("BRG-")) {
@@ -981,6 +1027,51 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 val currentItems = itemsWithStock.value
+                val existing = currentItems.find { it.namaBarang.equals(name.trim(), ignoreCase = true) }
+                if (existing != null) {
+                    val newStokAwal = existing.stokAwal + stokAwal
+                    val updatedItemEntity = ItemEntity(
+                        idBarang = existing.idBarang,
+                        namaBarang = existing.namaBarang,
+                        stokAwal = newStokAwal,
+                        kategori = if (kategori.isNotBlank()) kategori.trim() else existing.kategori,
+                        satuan = if (satuan.isNotBlank()) satuan.trim() else existing.satuan,
+                        stokRusak = existing.stokRusak,
+                        merekAlat = if (merekAlat.isNotBlank()) merekAlat.trim() else existing.merekAlat,
+                        ruang = if (ruang.isNotBlank()) ruang.trim() else existing.ruang,
+                        sumberDana = sumberDana ?: existing.sumberDana,
+                        kondisi = if (kondisi.isNotBlank()) kondisi.trim() else existing.kondisi,
+                        keterangan = if (keterangan.isNotBlank()) keterangan.trim() else existing.keterangan,
+                        type = "ALAT",
+                        isBorrowable = isBorrowable
+                    )
+                    repository.updateItem(updatedItemEntity)
+                    firebaseService.saveItemToFirestore(updatedItemEntity)
+
+                    val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    val sdfTime = SimpleDateFormat("HH:mm", Locale.US)
+                    val currentDate = sdfDate.format(Date())
+                    val currentTime = sdfTime.format(Date())
+                    val auditTx = com.example.data.entity.LoanTransactionEntity(
+                        idTransaksi = "TX-INP-${System.currentTimeMillis()}",
+                        tanggal = currentDate,
+                        waktu = currentTime,
+                        namaPeminjam = "Penambahan Stok: ${name.trim()}",
+                        kelas = "Sistem / Aset",
+                        kondisi = kondisi.trim().ifEmpty { "Baik" },
+                        namaPetugas = defaultOfficer.value.ifBlank { "Administrator" },
+                        status = "Aset Baru",
+                        tanggalKembali = currentDate,
+                        waktuKembali = currentTime,
+                        kondisiKembali = kondisi.trim().ifEmpty { "Baik" },
+                        petugasKembali = defaultOfficer.value.ifBlank { "Administrator" },
+                        keteranganKerusakan = "Stok alat bertambah $stokAwal $satuan. Total stok awal sekarang: $newStokAwal."
+                    )
+                    db.inventoryDao().insertTransaction(auditTx)
+                    onSuccess()
+                    return@launch
+                }
+
                 var maxIdNum = 0
                 currentItems.forEach { item ->
                     if (item.idBarang.startsWith("BRG-")) {
@@ -1904,6 +1995,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         waktuKembali: String,
         keteranganKerusakan: String? = null,
         itemConditions: Map<String, String> = emptyMap(),
+        itemDamagedCounts: Map<String, Int> = emptyMap(),
         itemNotes: Map<String, String> = emptyMap(),
         onSuccess: () -> Unit,
         onError: (String) -> Unit
@@ -1927,6 +2019,7 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
                     petugasKembali = namaPetugas.trim(),
                     keteranganKerusakan = keteranganKerusakan,
                     itemConditions = itemConditions,
+                    itemDamagedCounts = itemDamagedCounts,
                     itemNotes = itemNotes,
                     settingsRepo = settingsRepository
                 )
@@ -2012,18 +2105,11 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     suspend fun getItemsForTransaction(idTransaksi: String): List<LoanItemEntity> {
-        val rawItems = repository.getItemsForTransaction(idTransaksi)
-        val mergedMap = LinkedHashMap<String, LoanItemEntity>()
-        for (item in rawItems) {
-            val key = if (item.idBarang.isNotBlank()) item.idBarang else item.namaBarang.trim().lowercase()
-            if (mergedMap.containsKey(key)) {
-                val existing = mergedMap[key]!!
-                mergedMap[key] = existing.copy(jumlah = existing.jumlah + item.jumlah)
-            } else {
-                mergedMap[key] = item
-            }
-        }
-        return mergedMap.values.toList()
+        return repository.getItemsForTransaction(idTransaksi)
+    }
+
+    suspend fun getTransactionDetail(idTransaksi: String): com.example.data.repository.TransactionDetailResult? {
+        return repository.getTransactionDetail(idTransaksi)
     }
 
     fun clearAllLocalData(onCompleted: () -> Unit) {
