@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Dangerous
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -579,6 +580,20 @@ fun DashboardScreen(
                             }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+                        DrawerMenuItem(
+                            label = "Pengaturan Akses",
+                            icon = Icons.Default.Security,
+                            iconColor = Color(0xFFEA580C),
+                            bgColor = Color(0xFFFFEDD5),
+                            borderColor = Color(0xFFFED7AA),
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    onNavigateToMenu("Pengaturan Akses")
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                     DrawerMenuItem(
                         label = "Scan QR Code",
@@ -925,7 +940,31 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        val operasionalMenus = remember(userRole) {
+        val studentPermissions by viewModel.studentPermissions.collectAsState()
+
+        fun isMenuAllowedForSiswa(route: String): Boolean {
+            if (userRole == "admin") return true
+            val permKey = when (route) {
+                "Alat" -> "alat"
+                "Bahan" -> "bahan"
+                "Pemakaian Bahan" -> "pemakaian_bahan"
+                "Bahan Afkir" -> "bahan_afkir"
+                "Alat Rusak" -> "alat_rusak"
+                "Pemeliharaan" -> "pemeliharaan"
+                "Peminjaman" -> "peminjaman"
+                "Pengembalian" -> "pengembalian"
+                "Kondisi Alat" -> "kondisi_alat"
+                "Log Transaksi" -> "log_transaksi"
+                "Master Data" -> "master_data"
+                "Stok Opname" -> "stok_opname"
+                "Laporan" -> "laporan"
+                "Scan QR" -> "scan_qr"
+                else -> true
+            }
+            return studentPermissions[permKey] ?: true
+        }
+
+        val operasionalMenus = remember(userRole, studentPermissions) {
             listOf(
                 DashboardMenuData("ALAT", "Kelola & cek stok barang", Icons.Default.Build, Color(0xFF7C3AED), Color(0xFFF3E8FF), "menu_alat", "Alat"),
                 DashboardMenuData("BAHAN", "Stok barang habis pakai", Icons.Default.Science, Color(0xFF0284C7), Color(0xFFE0F2FE), "menu_bahan", "Bahan"),
@@ -933,115 +972,107 @@ fun DashboardScreen(
                 DashboardMenuData("Bahan Afkir", "Bahan rusak / kedaluwarsa", Icons.Default.DeleteSweep, Color(0xFFEA580C), Color(0xFFFFEDD5), "menu_bahan_afkir", "Bahan Afkir"),
                 DashboardMenuData("Alat Rusak", "Kelola & lapor alat rusak", Icons.Default.Warning, Color(0xFFEF4444), Color(0xFFFFECEF), "menu_alat_rusak", "Alat Rusak"),
                 DashboardMenuData("Pemeliharaan", "Servis & pemeliharaan alat", Icons.Default.Build, Color(0xFF2563EB), Color(0xFFEFF6FF), "menu_pemeliharaan", "Pemeliharaan")
-            ).filter { item ->
-                if (userRole == "siswa") {
-                    item.route == "Alat" || item.route == "Bahan"
-                } else {
-                    true
-                }
-            }
+            ).filter { isMenuAllowedForSiswa(it.route) }
         }
 
-        val sirkulasiMenus = remember(userRole) {
+        val sirkulasiMenus = remember(userRole, studentPermissions) {
             listOf(
                 DashboardMenuData("Peminjaman Alat", "Input barang keluar", Icons.Default.Assignment, Color(0xFF059669), Color(0xFFD1FAE5), "menu_peminjaman", "Peminjaman"),
                 DashboardMenuData("Pengembalian Alat", "Input barang kembali", Icons.Default.AssignmentReturn, Color(0xFF4F46E5), Color(0xFFE0E7FF), "menu_pengembalian", "Pengembalian"),
                 DashboardMenuData("Kondisi Alat", "Cek kelayakan alat", Icons.Default.Info, Color(0xFFE11D48), Color(0xFFFFE4E6), "menu_kondisi_alat", "Kondisi Alat"),
                 DashboardMenuData("Log Transaksi", "Riwayat aktivitas", Icons.Default.CloudSync, Color(0xFF0D9488), Color(0xFFCCFBF1), "menu_log_transaksi", "Log Transaksi")
-            ).filter { item ->
-                if (userRole == "siswa") {
-                    item.route == "Peminjaman" || item.route == "Pengembalian"
-                } else {
-                    true
-                }
-            }
+            ).filter { isMenuAllowedForSiswa(it.route) }
         }
 
-        val analisisMenus = remember {
+        val analisisMenus = remember(userRole, studentPermissions) {
             listOf(
                 DashboardMenuData("Laporan", "Unduh laporan & rekapan", Icons.Default.Assessment, Color(0xFF06B6D4), Color(0xFFECFEFF), "menu_laporan", "Laporan")
-            )
+            ).filter { isMenuAllowedForSiswa(it.route) }
         }
 
         // 1. KELOMPOK OPERASIONAL (EXPANDABLE)
-        ExpandableCategoryCard(
-            title = "Operasional",
-            description = "Kelola ketersediaan barang operasional",
-            icon = Icons.Default.Build,
-            iconBgColor = Color(0xFFF3E8FF),
-            iconTint = Color(0xFF7C3AED),
-            isExpanded = isOperasionalExpanded,
-            onToggle = { isOperasionalExpanded = !isOperasionalExpanded }
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
+        if (operasionalMenus.isNotEmpty()) {
+            ExpandableCategoryCard(
+                title = "Operasional",
+                description = "Kelola ketersediaan barang operasional",
+                icon = Icons.Default.Build,
+                iconBgColor = Color(0xFFF3E8FF),
+                iconTint = Color(0xFF7C3AED),
+                isExpanded = isOperasionalExpanded,
+                onToggle = { isOperasionalExpanded = !isOperasionalExpanded }
             ) {
-                operasionalMenus.chunked(2).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        rowItems.forEach { item ->
-                            GlassMenuCard(
-                                title = item.title,
-                                subtitle = item.subtitle,
-                                icon = item.icon,
-                                iconColor = item.iconColor,
-                                boxBgColor = item.boxBgColor,
-                                testTag = item.testTag,
-                                onClick = { onNavigateToMenu(item.route) },
-                                modifier = Modifier.weight(1f)
-                            )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    operasionalMenus.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            rowItems.forEach { item ->
+                                GlassMenuCard(
+                                    title = item.title,
+                                    subtitle = item.subtitle,
+                                    icon = item.icon,
+                                    iconColor = item.iconColor,
+                                    boxBgColor = item.boxBgColor,
+                                    testTag = item.testTag,
+                                    onClick = { onNavigateToMenu(item.route) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         // 2. KELOMPOK SIRKULASI (EXPANDABLE)
-        ExpandableCategoryCard(
-            title = "Sirkulasi",
-            description = "Alur keluar masuk dan kondisi inventaris",
-            icon = Icons.Default.CloudSync,
-            iconBgColor = Color(0xFFD1FAE5),
-            iconTint = Color(0xFF059669),
-            isExpanded = isSirkulasiExpanded,
-            onToggle = { isSirkulasiExpanded = !isSirkulasiExpanded },
-            badgeCount = sirkulasiBadgeCount
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
+        if (sirkulasiMenus.isNotEmpty()) {
+            ExpandableCategoryCard(
+                title = "Sirkulasi",
+                description = "Alur keluar masuk dan kondisi inventaris",
+                icon = Icons.Default.CloudSync,
+                iconBgColor = Color(0xFFD1FAE5),
+                iconTint = Color(0xFF059669),
+                isExpanded = isSirkulasiExpanded,
+                onToggle = { isSirkulasiExpanded = !isSirkulasiExpanded },
+                badgeCount = sirkulasiBadgeCount
             ) {
-                sirkulasiMenus.chunked(2).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        rowItems.forEach { item ->
-                            GlassMenuCard(
-                                title = item.title,
-                                subtitle = item.subtitle,
-                                icon = item.icon,
-                                iconColor = item.iconColor,
-                                boxBgColor = item.boxBgColor,
-                                testTag = item.testTag,
-                                onClick = { onNavigateToMenu(item.route) },
-                                modifier = Modifier.weight(1f)
-                            )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    sirkulasiMenus.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            rowItems.forEach { item ->
+                                GlassMenuCard(
+                                    title = item.title,
+                                    subtitle = item.subtitle,
+                                    icon = item.icon,
+                                    iconColor = item.iconColor,
+                                    boxBgColor = item.boxBgColor,
+                                    testTag = item.testTag,
+                                    onClick = { onNavigateToMenu(item.route) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        if (userRole == "admin") {
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 3. KELOMPOK ANALISIS (EXPANDABLE)
+        // 3. KELOMPOK ANALISIS (EXPANDABLE)
+        if (analisisMenus.isNotEmpty()) {
             ExpandableCategoryCard(
                 title = "Analisis",
                 description = "Laporan administrasi dan data rekapan",
@@ -1070,6 +1101,8 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         Spacer(modifier = Modifier.height(32.dp))

@@ -270,6 +270,38 @@ class SettingsRepository(private val context: Context) {
         saveList("recent_menus", list)
     }
 
+    fun getStudentPermissions(): Map<String, Boolean> {
+        val defaults = mapOf(
+            "peminjaman" to true,
+            "pengembalian" to true,
+            "alat" to true,
+            "bahan" to true,
+            "scan_qr" to true,
+            "pemakaian_bahan" to false,
+            "bahan_afkir" to false,
+            "alat_rusak" to false,
+            "pemeliharaan" to false,
+            "kondisi_alat" to false,
+            "log_transaksi" to false,
+            "master_data" to false,
+            "stok_opname" to false,
+            "laporan" to false
+        )
+        val map = mutableMapOf<String, Boolean>()
+        defaults.forEach { (key, defaultVal) ->
+            map[key] = prefs.getBoolean("perm_student_$key", defaultVal)
+        }
+        return map
+    }
+
+    fun saveStudentPermissions(map: Map<String, Boolean>) {
+        val editor = prefs.edit()
+        map.forEach { (key, value) ->
+            editor.putBoolean("perm_student_$key", value)
+        }
+        editor.apply()
+    }
+
     fun clearAllSettings() {
         prefs.edit().clear().apply()
         runBlocking {

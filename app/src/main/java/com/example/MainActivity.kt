@@ -46,6 +46,7 @@ import com.example.ui.screens.BahanAfkirScreen
 import com.example.ui.screens.AlatRusakScreen
 import com.example.ui.screens.PemeliharaanScreen
 import com.example.ui.screens.ProfileScreen
+import com.example.ui.screens.RoleManagementScreen
 
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -87,6 +88,7 @@ class MainActivity : ComponentActivity() {
             val inventoryViewModel: InventoryViewModel = viewModel()
             val isLoggedIn by inventoryViewModel.isLoggedIn.collectAsState()
             val userRole by inventoryViewModel.userRole.collectAsState()
+            val studentPermissions by inventoryViewModel.studentPermissions.collectAsState()
             val themePreference by inventoryViewModel.appTheme.collectAsState()
             val isDrawerOpen by inventoryViewModel.isDrawerOpen.collectAsState()
 
@@ -104,6 +106,17 @@ class MainActivity : ComponentActivity() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
 
+                    val mainDestinations = if (userRole == "admin") {
+                        listOf("dashboard", "master_data", "scan_qr", "laporan", "profil")
+                    } else {
+                        val list = mutableListOf("dashboard")
+                        if (studentPermissions["master_data"] == true) list.add("master_data")
+                        if (studentPermissions["scan_qr"] != false) list.add("scan_qr")
+                        if (studentPermissions["laporan"] == true) list.add("laporan")
+                        list.add("profil")
+                        list
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -113,11 +126,6 @@ class MainActivity : ComponentActivity() {
                             containerColor = Color.Transparent,
                             modifier = Modifier.fillMaxSize(),
                             bottomBar = {
-                                val mainDestinations = if (userRole == "admin") {
-                                    listOf("dashboard", "master_data", "scan_qr", "laporan", "profil")
-                                } else {
-                                    listOf("dashboard", "scan_qr", "profil")
-                                }
                                 val showBottomBar = (currentRoute in mainDestinations) && !isDrawerOpen
                                 AnimatedVisibility(
                                     visible = showBottomBar,
@@ -139,11 +147,18 @@ class MainActivity : ComponentActivity() {
                                                 Triple("Profil", "profil", Icons.Default.Person)
                                             )
                                         } else {
-                                            listOf(
-                                                Triple("Dashboard", "dashboard", Icons.Default.Home),
-                                                Triple("Scan QR", "scan_qr", Icons.Default.QrCode),
-                                                Triple("Profil", "profil", Icons.Default.Person)
-                                            )
+                                            val t = mutableListOf(Triple("Dashboard", "dashboard", Icons.Default.Home))
+                                            if (studentPermissions["master_data"] == true) {
+                                                t.add(Triple("Master Data", "master_data", Icons.Default.Storage))
+                                            }
+                                            if (studentPermissions["scan_qr"] != false) {
+                                                t.add(Triple("Scan QR", "scan_qr", Icons.Default.QrCode))
+                                            }
+                                            if (studentPermissions["laporan"] == true) {
+                                                t.add(Triple("Laporan", "laporan", Icons.Default.Assessment))
+                                            }
+                                            t.add(Triple("Profil", "profil", Icons.Default.Person))
+                                            t
                                         }
                                         tabs.forEach { (label, route, icon) ->
                                             val isSelected = currentRoute == route
@@ -186,13 +201,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         ) { innerPadding ->
-                            val mainDestinations = if (userRole == "admin") {
-                                listOf("dashboard", "master_data", "scan_qr", "laporan", "profil")
-                            } else {
-                                listOf("dashboard", "scan_qr", "profil")
-                            }
-                            val isMainRoute = currentRoute in mainDestinations
-                            val isLaporanRoute = currentRoute == "laporan"
                             NavHost(
                                 navController = navController,
                                 startDestination = "dashboard",
@@ -219,6 +227,7 @@ class MainActivity : ComponentActivity() {
                                         "Scan QR" -> "scan_qr"
                                         "Backup & Restore" -> "backup_restore"
                                         "Pengaturan" -> "pengaturan"
+                                        "Pengaturan Akses", "Hak Akses", "Role Management" -> "role_management"
                                         "Kondisi Alat" -> "kondisi_alat"
                                         "Alat" -> "alat"
                                         "Bahan" -> "bahan"
@@ -359,6 +368,12 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("kondisi_alat") {
                             KondisiAlatScreen(
+                                viewModel = inventoryViewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("role_management") {
+                            RoleManagementScreen(
                                 viewModel = inventoryViewModel,
                                 onNavigateBack = { navController.popBackStack() }
                             )

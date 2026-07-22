@@ -39,13 +39,93 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     val settingsRepository = SettingsRepository(application)
     private val firebaseService = com.example.data.network.FirebaseService(db)
 
+    // Student Permissions Control State
+    private val _studentPermissions = MutableStateFlow(settingsRepository.getStudentPermissions())
+    val studentPermissions: StateFlow<Map<String, Boolean>> = _studentPermissions.asStateFlow()
+
+    private var permissionsListener: com.google.firebase.firestore.ListenerRegistration? = null
+
     init {
         firebaseService.startRealtimeSync()
+        initStudentPermissionsListener()
     }
 
     override fun onCleared() {
         super.onCleared()
         firebaseService.stopRealtimeSync()
+        permissionsListener?.remove()
+    }
+
+    private fun initStudentPermissionsListener() {
+        try {
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            permissionsListener = firestore.collection("settings").document("student_permissions")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("InventoryVM", "Error listening to student_permissions", error)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null && snapshot.exists()) {
+                        val data = snapshot.data
+                        if (data != null) {
+                            val current = _studentPermissions.value.toMutableMap()
+                            data.forEach { (key, value) ->
+                                if (value is Boolean) {
+                                    current[key] = value
+                                }
+                            }
+                            _studentPermissions.value = current
+                            settingsRepository.saveStudentPermissions(current)
+                        }
+                    } else {
+                        saveStudentPermissionsToFirestore(_studentPermissions.value)
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e("InventoryVM", "Failed to init student permissions listener", e)
+        }
+    }
+
+    private fun saveStudentPermissionsToFirestore(permissions: Map<String, Boolean>) {
+        try {
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val data = hashMapOf<String, Any>()
+            permissions.forEach { (k, v) -> data[k] = v }
+            firestore.collection("settings").document("student_permissions")
+                .set(data, com.google.firebase.firestore.SetOptions.merge())
+        } catch (e: Exception) {
+            Log.e("InventoryVM", "Failed to save student permissions to Firestore", e)
+        }
+    }
+
+    fun updateStudentPermission(key: String, isAllowed: Boolean) {
+        val updated = _studentPermissions.value.toMutableMap()
+        updated[key] = isAllowed
+        _studentPermissions.value = updated
+        settingsRepository.saveStudentPermissions(updated)
+        saveStudentPermissionsToFirestore(updated)
+    }
+
+    fun resetStudentPermissionsToDefault() {
+        val defaults = mapOf(
+            "peminjaman" to true,
+            "pengembalian" to true,
+            "alat" to true,
+            "bahan" to true,
+            "scan_qr" to true,
+            "pemakaian_bahan" to false,
+            "bahan_afkir" to false,
+            "alat_rusak" to false,
+            "pemeliharaan" to false,
+            "kondisi_alat" to false,
+            "log_transaksi" to false,
+            "master_data" to false,
+            "stok_opname" to false,
+            "laporan" to false
+        )
+        _studentPermissions.value = defaults
+        settingsRepository.saveStudentPermissions(defaults)
+        saveStudentPermissionsToFirestore(defaults)
     }
 
     // Authentication States
